@@ -1,5 +1,8 @@
 package com.hady.robustexoplayer.presentation.component
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -10,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,16 +33,22 @@ internal fun PlayerThinSlider(
     activeTrackColor: Color = MaterialTheme.colorScheme.primary,
     inactiveTrackColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.24f)
 ) {
-    Box(modifier = modifier.height(24.dp)) {
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = value,
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing), // Smooth animation
+        label = "Slider Animation"
+    )
+    Box(modifier = modifier.height(0.dp)) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(24.dp) // Adjust the overall height to make room for custom track and thumb
                 .align(Alignment.Center)
-                .padding(horizontal = 8.dp)
+                //.padding(horizontal = 8.dp)
         ) {
             val trackWidth = size.width
-            val thumbPosition = trackWidth * value
+            val thumbPosition = trackWidth * animatedProgress
             val thumbRadius = 8.dp.toPx() // Define the radius for the circular thumb
 
             // Draw inactive track

@@ -6,31 +6,31 @@ sealed class PlayerEvent {
 
     // Playback Control Events
     data class Play(val mediaItem: MediaItem) : PlayerEvent()
-    object Pause : PlayerEvent()
+    data object Pause : PlayerEvent()
     data class SeekTo(val positionMs: Long) : PlayerEvent()
     data class ChangeSpeed(val speed: Float) : PlayerEvent()
-    object Next : PlayerEvent()
-    object Previous : PlayerEvent()
-    object Restart : PlayerEvent()
-    object Stop : PlayerEvent()
+    data object Next : PlayerEvent()
+    data object Previous : PlayerEvent()
+    data object Restart : PlayerEvent()
+    data object Stop : PlayerEvent()
 
     // Advanced Playback Events
-    object EnablePiP : PlayerEvent()
-    object ToggleFullscreen : PlayerEvent()
-    object ToggleMute : PlayerEvent()
-    object ToggleSubtitles : PlayerEvent()
-    object ToggleCaptions : PlayerEvent()
-    object ToggleLoop : PlayerEvent()
-    object ToggleShuffle : PlayerEvent()
+    data object EnablePiP : PlayerEvent()
+    data object ToggleFullscreen : PlayerEvent()
+    data object ToggleMute : PlayerEvent()
+    data object ToggleSubtitles : PlayerEvent()
+    data object ToggleCaptions : PlayerEvent()
+    data object ToggleLoop : PlayerEvent()
+    data object ToggleShuffle : PlayerEvent()
     data class SetSleepTimer(val minutes: Int) : PlayerEvent()
-    object ToggleScreenLock : PlayerEvent()
+    data object ToggleScreenLock : PlayerEvent()
 
     // Seek Control Events
     data class FastForward(val seconds: Int = 10) : PlayerEvent()
     data class Rewind(val seconds: Int = 10) : PlayerEvent()
 
     // UI Interaction Events
-    object ToggleSettings : PlayerEvent() // Opens the Settings Menu
-    object ToggleQualitySelection : PlayerEvent() // Open quality menu
-    object ToggleComments : PlayerEvent() // Show/Hide comments section
+    data object ToggleSettings : PlayerEvent() // Opens the Settings Menu
+    data object ToggleQualitySelection : PlayerEvent() // Open quality menu
+    data object ToggleComments : PlayerEvent() // Show/Hide comments section
 }
