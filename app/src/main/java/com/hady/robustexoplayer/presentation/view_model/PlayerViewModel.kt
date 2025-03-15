@@ -8,11 +8,15 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.hady.robustexoplayer.di.ExoPlayerManager
+import com.hady.robustexoplayer.domain.player.PlayerEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -33,14 +37,62 @@ class PlayerViewModel
     private val _isFullscreen = MutableStateFlow(false)
     val isFullscreen: StateFlow<Boolean> = _isFullscreen.asStateFlow()
 
+    /** 🔹 Track Zoom Scale **/
+    private val _zoomScale = MutableStateFlow(1f)
+    val zoomScale: StateFlow<Float> = _zoomScale.asStateFlow()
+
+
+    /** One-Time UI Events (e.g., Open Settings, Open Comments, etc.) **/
+    private val _uiEvent = MutableSharedFlow<PlayerEvent>()
+    val uiEvent = _uiEvent.asSharedFlow()
+
     init {
         startTrackingProgress()
         observePlayerEvents()
     }
 
+    /** 🔹 Handle Player Events **/
+    fun onPlayerEvent(event: PlayerEvent) {
+        when (event) {
+            is PlayerEvent.Play -> playVideo(url = event.url)
+            is PlayerEvent.Pause -> togglePlayPause()
+            is PlayerEvent.SeekTo -> seekTo(event.positionMs)
+            is PlayerEvent.ChangeSpeed -> changeSpeed(event.speed)
+            is PlayerEvent.FastForward -> seekForward()
+            is PlayerEvent.Rewind -> seekBackward()
+            is PlayerEvent.Next -> playNext()
+            is PlayerEvent.Previous -> playPrevious()
+            is PlayerEvent.Restart -> restartVideo()
+            is PlayerEvent.Stop -> stopPlayer()
+            is PlayerEvent.EnablePiP -> enablePictureInPicture()
+            is PlayerEvent.ToggleFullscreen -> toggleFullscreen()
+            is PlayerEvent.ToggleMute -> toggleMute()
+            is PlayerEvent.ToggleSubtitles -> toggleSubtitles()
+            is PlayerEvent.ToggleCaptions -> toggleCaptions()
+            is PlayerEvent.ToggleLoop -> toggleLoop()
+            is PlayerEvent.ToggleShuffle -> toggleShuffle()
+            is PlayerEvent.SetSleepTimer -> setSleepTimer(event.minutes)
+            is PlayerEvent.ToggleScreenLock -> toggleScreenLock()
+            is PlayerEvent.ToggleSettings -> openSettings()
+            is PlayerEvent.ToggleQualitySelection -> openQualitySelection()
+            is PlayerEvent.ToggleComments -> openComments()
+        }
+    }
+
+    /** 🔄 Emit One-Time UI Events **/
+    private fun sendUiEvent(event: PlayerEvent) {
+        viewModelScope.launch {
+            _uiEvent.emit(event)
+        }
+    }
     private fun startTrackingProgress() {
         viewModelScope.launch {
-            while (true) {
+            flow {
+                while (true) {
+                    emit(Unit)
+                    delay(500) // Update every 500ms
+                }
+            }.collect {
                 _playerUiState.update { state ->
                     state.copy(
                         currentPosition = formatTime(player.currentPosition),
@@ -48,7 +100,6 @@ class PlayerViewModel
                         progress = if (player.duration > 0) player.currentPosition / player.duration.toFloat() else 0f
                     )
                 }
-                delay(1000) // ✅ Update every second
             }
         }
     }
@@ -133,6 +184,14 @@ class PlayerViewModel
         }
     }
 
+    fun updateZoom(scale: Float) {
+        _zoomScale.value = scale
+    }
+
+    fun resetZoom() {
+        _zoomScale.value = 1f
+    }
+
     /** ⏱ Format Time **/
     private fun formatTime(ms: Long): String {
         val totalSeconds = ms / 1000
@@ -149,6 +208,72 @@ class PlayerViewModel
     override fun onCleared() {
         super.onCleared()
         releasePlayer()
+    }
+
+    private fun openComments() {
+        TODO("Not yet implemented")
+    }
+
+    private fun openQualitySelection() {
+        TODO("Not yet implemented")
+    }
+
+    private fun openSettings() {
+        TODO("Not yet implemented")
+    }
+
+    private fun toggleScreenLock() {
+        TODO("Not yet implemented")
+    }
+
+    private fun setSleepTimer(minutes: Int) {
+        TODO("Not yet implemented")
+    }
+
+    private fun toggleShuffle() {
+        TODO("Not yet implemented")
+    }
+
+    private fun toggleLoop() {
+        TODO("Not yet implemented")
+    }
+
+    private fun toggleCaptions() {
+        TODO("Not yet implemented")
+    }
+
+    private fun toggleSubtitles() {
+        TODO("Not yet implemented")
+    }
+
+    private fun toggleMute() {
+        TODO("Not yet implemented")
+    }
+
+    private fun enablePictureInPicture() {
+        TODO("Not yet implemented")
+    }
+
+    private fun stopPlayer() {
+        TODO("Not yet implemented")
+    }
+
+    private fun playPrevious() {
+        TODO("Not yet implemented")
+    }
+
+    private fun playNext() {
+        TODO("Not yet implemented")
+    }
+
+    private fun changeSpeed(speed: Float) {
+        TODO("Not yet implemented")
+    }
+
+    /** 🔹 Restart Video **/
+    private fun restartVideo() {
+        seekTo(0L)
+        player.playWhenReady = true
     }
 }
 

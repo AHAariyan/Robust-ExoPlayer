@@ -1,11 +1,13 @@
 package com.hady.robustexoplayer.presentation.screen
 
+import androidx.annotation.OptIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -35,39 +38,34 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.media3.common.util.UnstableApi
 import com.hady.robustexoplayer.common.commentsIcon
 import com.hady.robustexoplayer.common.fullScreenIcon
-import com.hady.robustexoplayer.common.image
 import com.hady.robustexoplayer.common.pauseIcon
 import com.hady.robustexoplayer.common.playIcon
 import com.hady.robustexoplayer.common.settingIcon
 import com.hady.robustexoplayer.common.subtitlesIcon
+import com.hady.robustexoplayer.domain.player.PlayerEvent
 import com.hady.robustexoplayer.presentation.component.PlayerThinSlider
-import com.hady.robustexoplayer.ui.theme.RobustExoPlayerTheme
+import com.hady.robustexoplayer.presentation.view_model.PlayerUiState
+import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(UnstableApi::class)
 @Composable
 fun ControllerScreen(
-    isLandscape: Boolean, // Determines portrait or landscape mode
-    progress: Float,
-    currentPosition: String,
-    totalDuration: String,
-    onPlayPause: () -> Unit,
-    onSeekForward: () -> Unit,
-    onSeekBackward: () -> Unit,
-    onSeekTo: (Float) -> Unit,
-    onToggleFullscreen: () -> Unit,
-    onSettingsClick: () -> Unit,
-    onSubtitlesClick: () -> Unit,
-    onCommentsClick: () -> Unit, // Only in landscape mode
-    isPlaying: Boolean,
-    isBuffering: Boolean
+    playerViewModel: PlayerViewModel,
+    playerUiState: PlayerUiState,
+    isFullscreen: Boolean,
+    zoomedScale: Float
 ) {
 
-    val playPauseIcon = if (isPlaying) painterResource(pauseIcon) else painterResource(playIcon)
+    val playPauseIcon = if (playerUiState.isPlaying) painterResource(pauseIcon) else painterResource(playIcon)
 
     Box(
         modifier = Modifier
@@ -77,8 +75,8 @@ fun ControllerScreen(
 
         /** ✅ Double-Tap Gesture for Seek (Like YouTube) **/
         DoubleTapSeekGesture(
-            onDoubleTapLeft = onSeekBackward,
-            onDoubleTapRight = onSeekForward
+            onDoubleTapLeft = { playerViewModel.onPlayerEvent(PlayerEvent.Rewind(10)) },
+            onDoubleTapRight = { playerViewModel.onPlayerEvent(PlayerEvent.FastForward(10)) }
         )
 
         Column(
@@ -94,8 +92,35 @@ fun ControllerScreen(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isLandscape) {
-                    IconButton(onClick = onCommentsClick) {
+
+                if (zoomedScale > 1f || zoomedScale < 1f) { // ✅ Always check non-1.0 scale
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(24.dp) // ✅ Fixed size for a perfect circle
+                            .clip(CircleShape) // ✅ Ensures circular shape
+                            .background(Color.Black.copy(alpha = 0.7f)) // ✅ Background inside the circle
+                            .border(1.dp, color = Color.White, CircleShape) // ✅ Proper circular border
+                            .clickable {
+                                playerViewModel.resetZoom() // ✅ Reset zoom via ViewModel
+                            },
+                        contentAlignment = Alignment.Center // ✅ Ensures text is centered
+                    ) {
+                        Text(
+                            text = "%.1fx".format(zoomedScale),
+                            color = Color.White,
+                            fontSize = 8.sp, // ✅ Slightly increased for better visibility
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+
+                }
+
+
+                if (isFullscreen) {
+                    IconButton(onClick = {playerViewModel.onPlayerEvent(PlayerEvent.ToggleComments)}) {
                         Icon(
                             modifier = Modifier.size(24.dp),
                             painter = painterResource(commentsIcon),
@@ -104,7 +129,7 @@ fun ControllerScreen(
                         )
                     }
                 }
-                IconButton(onClick = onSubtitlesClick) {
+                IconButton(onClick = { playerViewModel.onPlayerEvent(PlayerEvent.ToggleSubtitles) }) {
                     Icon(
                         modifier = Modifier.size(24.dp),
                         painter = painterResource(subtitlesIcon),
@@ -112,7 +137,7 @@ fun ControllerScreen(
                         tint = Color.White
                     )
                 }
-                IconButton(onClick = onSettingsClick) {
+                IconButton(onClick = { playerViewModel.onPlayerEvent(PlayerEvent.ToggleSettings) }) {
                     Icon(
                         modifier = Modifier.size(24.dp),
                         painter = painterResource(settingIcon),
@@ -124,7 +149,7 @@ fun ControllerScreen(
 
             /** ✅ Bottom Controls (Timer, Fullscreen & SeekBar) **/
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(bottom = if (isFullscreen) 16.dp else 0.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -134,12 +159,12 @@ fun ControllerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "$currentPosition / $totalDuration",
+                        text = "${playerUiState.currentPosition} / ${playerUiState.totalDuration}",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White
                     )
 
-                    IconButton(onClick = onToggleFullscreen) {
+                    IconButton(onClick = { playerViewModel.onPlayerEvent(PlayerEvent.ToggleFullscreen) }) {
                         Icon(
                             modifier = Modifier.size(24.dp),
                             painter = painterResource(fullScreenIcon),
@@ -151,9 +176,9 @@ fun ControllerScreen(
 
                 // SeekBar
                 PlayerThinSlider(
-                    value = progress,
+                    value = playerUiState.progress,
                     onValueChange = {newValue ->
-                        onSeekTo(newValue)
+                        playerViewModel.onPlayerEvent(PlayerEvent.SeekTo((newValue * playerViewModel.player.duration).toLong()))
                     },
                     modifier = Modifier
                         .fillMaxWidth(),
@@ -165,7 +190,7 @@ fun ControllerScreen(
         }
 
         /** ✅ Show Buffering Indicator **/
-        if (isBuffering) {
+        if (playerUiState.isBuffering) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center),
                 color = Color.White
@@ -178,7 +203,7 @@ fun ControllerScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             IconButton(
-                onClick = onPlayPause
+                onClick = { playerViewModel.onPlayerEvent(PlayerEvent.Pause) }
             ) {
                 Icon(
                     painter = playPauseIcon,
@@ -290,32 +315,32 @@ fun DoubleTapSeekGesture(
 }
 
 
-@Composable
-@Preview(showBackground = true, name = "Player Controller Preview")
-internal fun PreviewPlayerController() {
-    RobustExoPlayerTheme {
-        Box (
-            modifier = Modifier
-                .fillMaxSize()
-               // .background(Color.White)
-        ) {
-            Image(modifier = Modifier.fillMaxWidth(), painter = painterResource(id = image), contentDescription = null)
-            ControllerScreen(
-                isLandscape = false, // Portrait mode preview
-                progress = 0.3f, // 30% progress
-                currentPosition = "01:30",
-                totalDuration = "05:00",
-                onPlayPause = {},
-                onSeekForward = {},
-                onSeekBackward = {},
-                onSeekTo = {},
-                onToggleFullscreen = {},
-                onSettingsClick = {},
-                onSubtitlesClick = {},
-                onCommentsClick = {},
-                isPlaying = false,
-                isBuffering = false// This won't be visible in portrait mode
-            )
-        }
-    }
-}
+//@Composable
+//@Preview(showBackground = true, name = "Player Controller Preview")
+//internal fun PreviewPlayerController() {
+//    RobustExoPlayerTheme {
+//        Box (
+//            modifier = Modifier
+//                .fillMaxSize()
+//               // .background(Color.White)
+//        ) {
+//            Image(modifier = Modifier.fillMaxWidth(), painter = painterResource(id = image), contentDescription = null)
+//            ControllerScreen(
+//                isLandscape = false, // Portrait mode preview
+//                progress = 0.3f, // 30% progress
+//                currentPosition = "01:30",
+//                totalDuration = "05:00",
+//                onPlayPause = {},
+//                onSeekForward = {},
+//                onSeekBackward = {},
+//                onSeekTo = {},
+//                onToggleFullscreen = {},
+//                onSettingsClick = {},
+//                onSubtitlesClick = {},
+//                onCommentsClick = {},
+//                isPlaying = false,
+//                isBuffering = false// This won't be visible in portrait mode
+//            )
+//        }
+//    }
+//}

@@ -5,7 +5,7 @@ import androidx.media3.common.MediaItem
 sealed class PlayerEvent {
 
     // Playback Control Events
-    data class Play(val mediaItem: MediaItem) : PlayerEvent()
+    data class Play(val url: String) : PlayerEvent()
     data object Pause : PlayerEvent()
     data class SeekTo(val positionMs: Long) : PlayerEvent()
     data class ChangeSpeed(val speed: Float) : PlayerEvent()
