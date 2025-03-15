@@ -3,20 +3,30 @@ package com.hady.robustexoplayer.presentation.view_model
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import com.hady.robustexoplayer.data.model.TrackInfo
 import com.hady.robustexoplayer.di.ExoPlayerManager
 import com.hady.robustexoplayer.domain.player.PlayerEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -41,6 +51,22 @@ class PlayerViewModel
     private val _zoomScale = MutableStateFlow(1f)
     val zoomScale: StateFlow<Float> = _zoomScale.asStateFlow()
 
+    private val _availableTracks = MutableStateFlow<Map<Int, List<Tracks.Group>>>(emptyMap())
+    val availableTracks: StateFlow<Map<Int, List<Tracks.Group>>> = _availableTracks.asStateFlow()
+
+    private val _trackSelectionParameters =
+        MutableStateFlow(player.trackSelectionParameters)
+    val trackSelectionParameters: StateFlow<TrackSelectionParameters> =
+        _trackSelectionParameters.asStateFlow()
+
+    /** 🔹 Track Disabled State & Overrides */
+    private val _disabledTrackTypes = MutableStateFlow(mutableSetOf<Int>())
+    val disabledTrackTypes: StateFlow<Set<Int>> = _disabledTrackTypes.asStateFlow()
+
+    val overrides: StateFlow<Map<TrackGroup, TrackSelectionOverride>> =
+        trackSelectionParameters.map { it.overrides }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+
+
 
     /** One-Time UI Events (e.g., Open Settings, Open Comments, etc.) **/
     private val _uiEvent = MutableSharedFlow<PlayerEvent>()
@@ -49,6 +75,8 @@ class PlayerViewModel
     init {
         startTrackingProgress()
         observePlayerEvents()
+
+
     }
 
     /** 🔹 Handle Player Events **/
@@ -76,8 +104,75 @@ class PlayerViewModel
             is PlayerEvent.ToggleSettings -> openSettings()
             is PlayerEvent.ToggleQualitySelection -> openQualitySelection()
             is PlayerEvent.ToggleComments -> openComments()
+            is PlayerEvent.ChangeQuality -> changeVideoQuality(trackIndex = event.trackIndex)
         }
     }
+
+    /** ✅ Extract track qualities when initialized */
+    fun extractAvailableTracks() {
+        val tracks = player.currentTracks
+        val extractedTracks = mutableMapOf<Int, List<Tracks.Group>>()
+
+        SUPPORTED_TRACK_TYPES.forEach { trackType ->
+            val trackGroups = tracks.groups.filter { it.type == trackType }
+            if (trackGroups.isNotEmpty()) {
+                extractedTracks[trackType] = trackGroups
+            }
+        }
+
+        _availableTracks.value = extractedTracks
+    }
+
+    /** ✅ Disable/Enable Track Type */
+    fun toggleTrackType(trackType: Int) {
+        _trackSelectionParameters.update { params ->
+            params.buildUpon()
+                .setTrackTypeDisabled(trackType, !params.disabledTrackTypes.contains(trackType))
+                .build()
+        }
+        player.trackSelectionParameters = _trackSelectionParameters.value
+    }
+
+    /** ✅ Apply Selection (Fully follows Ideal Codebase) */
+    private fun applyTrackSelection() {
+        val builder = _trackSelectionParameters.value.buildUpon().apply {
+            SUPPORTED_TRACK_TYPES.forEach { trackType ->
+                setTrackTypeDisabled(trackType, willDisableTrackType(trackType))
+                clearOverridesOfType(trackType)
+            }
+            overrides.value.forEach { (_, override) ->
+                addOverride(override)
+            }
+        }
+
+        _trackSelectionParameters.value = builder.build()
+        player.trackSelectionParameters = _trackSelectionParameters.value
+    }
+
+    private fun willDisableTrackType(trackType: Int): Boolean {
+        return trackSelectionParameters.value.disabledTrackTypes.contains(trackType)
+    }
+
+    fun changeVideoQuality(trackIndex: Int) {
+        val trackGroups = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
+        if (trackGroups.isEmpty()) return // No video tracks available
+
+        val selectedGroup = trackGroups.first()
+        val override = TrackSelectionOverride(selectedGroup.mediaTrackGroup, trackIndex)
+
+        if (_trackSelectionParameters.value.overrides[selectedGroup.mediaTrackGroup] == override) return // ✅ Avoid unnecessary update
+
+        val newParams = _trackSelectionParameters.value.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+            .addOverride(override)
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+            .build()
+
+        _trackSelectionParameters.value = newParams
+        player.trackSelectionParameters = newParams // ✅ Apply to ExoPlayer
+    }
+
+
 
     /** 🔄 Emit One-Time UI Events **/
     private fun sendUiEvent(event: PlayerEvent) {
@@ -87,12 +182,7 @@ class PlayerViewModel
     }
     private fun startTrackingProgress() {
         viewModelScope.launch {
-            flow {
-                while (true) {
-                    emit(Unit)
-                    delay(500) // Update every 500ms
-                }
-            }.collect {
+            while (true) {
                 _playerUiState.update { state ->
                     state.copy(
                         currentPosition = formatTime(player.currentPosition),
@@ -100,9 +190,30 @@ class PlayerViewModel
                         progress = if (player.duration > 0) player.currentPosition / player.duration.toFloat() else 0f
                     )
                 }
+                delay(500) // ✅ Update every 500ms
             }
         }
     }
+
+
+//    private fun startTrackingProgress() {
+//        viewModelScope.launch {
+//            flow {
+//                while (true) {
+//                    emit(Unit)
+//                    delay(500) // Update every 500ms
+//                }
+//            }.collect {
+//                _playerUiState.update { state ->
+//                    state.copy(
+//                        currentPosition = formatTime(player.currentPosition),
+//                        totalDuration = formatTime(player.duration),
+//                        progress = if (player.duration > 0) player.currentPosition / player.duration.toFloat() else 0f
+//                    )
+//                }
+//            }
+//        }
+//    }
 
     fun playVideo(
         url: String,
@@ -111,6 +222,8 @@ class PlayerViewModel
     ) {
         exoPlayerManager.preparePlayer(url, drmConfig, adsConfig)
         _playerUiState.update { it.copy(currentUrl = url, isPlaying = true) }
+
+        extractAvailableTracks()
     }
 
     fun togglePlayPause() {
@@ -270,6 +383,24 @@ class PlayerViewModel
         TODO("Not yet implemented")
     }
 
+    /** ✅ Checks if the current player has selectable tracks */
+    fun willHaveContent(): Boolean {
+        return willHaveContent(player.currentTracks)
+    }
+
+    /** ✅ Checks if any supported track types exist in the given track list */
+    fun willHaveContent(tracks: Tracks): Boolean {
+        return tracks.groups.any { trackGroup ->
+            SUPPORTED_TRACK_TYPES.contains(trackGroup.type)
+        }
+    }
+
+    /** ✅ List of Supported Track Types (Video, Audio, Subtitles, Images) */
+    private val SUPPORTED_TRACK_TYPES = listOf(
+        C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_TEXT, C.TRACK_TYPE_IMAGE
+    )
+
+
     /** 🔹 Restart Video **/
     private fun restartVideo() {
         seekTo(0L)
@@ -284,5 +415,9 @@ data class PlayerUiState(
     val isBuffering: Boolean = false,
     val progress: Float = 0f,
     val currentPosition: String = "00:00",
-    val totalDuration: String = "00:00"
+    val totalDuration: String = "00:00",
+    //
+    val playbackSpeed: Float = 1.0f,
+    val availableQualities: List<TrackInfo> = emptyList(),
+    val selectedQualityIndex: Int? = null
 )

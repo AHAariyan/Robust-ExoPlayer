@@ -9,6 +9,7 @@ sealed class PlayerEvent {
     data object Pause : PlayerEvent()
     data class SeekTo(val positionMs: Long) : PlayerEvent()
     data class ChangeSpeed(val speed: Float) : PlayerEvent()
+    data class ChangeQuality(val trackIndex: Int) : PlayerEvent()
     data object Next : PlayerEvent()
     data object Previous : PlayerEvent()
     data object Restart : PlayerEvent()
