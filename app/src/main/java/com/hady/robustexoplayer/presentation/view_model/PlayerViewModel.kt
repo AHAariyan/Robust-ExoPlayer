@@ -1,10 +1,10 @@
 package com.hady.robustexoplayer.presentation.view_model
 
-import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.TrackGroup
 import androidx.media3.common.TrackSelectionOverride
@@ -12,7 +12,7 @@ import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import com.hady.robustexoplayer.data.model.SettingsFeature
 import com.hady.robustexoplayer.data.model.TrackInfo
 import com.hady.robustexoplayer.di.ExoPlayerManager
 import com.hady.robustexoplayer.domain.player.PlayerEvent
@@ -24,11 +24,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.lang.Thread.State
 import javax.inject.Inject
 
 @HiltViewModel
@@ -63,9 +63,20 @@ class PlayerViewModel
     private val _disabledTrackTypes = MutableStateFlow(mutableSetOf<Int>())
     val disabledTrackTypes: StateFlow<Set<Int>> = _disabledTrackTypes.asStateFlow()
 
-    val overrides: StateFlow<Map<TrackGroup, TrackSelectionOverride>> =
-        trackSelectionParameters.map { it.overrides }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+    // Variables for hide & seek
+    private val _isSettingVisible = MutableStateFlow(false)
+    val isSettingVisible: StateFlow<Boolean> = _isSettingVisible.asStateFlow()
 
+    // Audio play speed -> Current & Manually selected
+    private val _selectedPlaybackSpeed = MutableStateFlow(1.0f)
+    val selectedPlaybackSpeed: StateFlow<Float> = _selectedPlaybackSpeed.asStateFlow()
+
+    private val _selectedFeature = MutableStateFlow<SettingsFeature?>(null)
+    val selectedFeature: StateFlow<SettingsFeature?> = _selectedFeature.asStateFlow()
+
+    val overrides: StateFlow<Map<TrackGroup, TrackSelectionOverride>> =
+        trackSelectionParameters.map { it.overrides }
+            .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
 
     /** One-Time UI Events (e.g., Open Settings, Open Comments, etc.) **/
@@ -85,7 +96,7 @@ class PlayerViewModel
             is PlayerEvent.Play -> playVideo(url = event.url)
             is PlayerEvent.Pause -> togglePlayPause()
             is PlayerEvent.SeekTo -> seekTo(event.positionMs)
-            is PlayerEvent.ChangeSpeed -> changeSpeed(event.speed)
+            is PlayerEvent.PlaybackSpeed -> updatePlaybackSpeed(event.speed)
             is PlayerEvent.FastForward -> seekForward()
             is PlayerEvent.Rewind -> seekBackward()
             is PlayerEvent.Next -> playNext()
@@ -101,12 +112,24 @@ class PlayerViewModel
             is PlayerEvent.ToggleShuffle -> toggleShuffle()
             is PlayerEvent.SetSleepTimer -> setSleepTimer(event.minutes)
             is PlayerEvent.ToggleScreenLock -> toggleScreenLock()
-            is PlayerEvent.ToggleSettings -> openSettings()
+            is PlayerEvent.ToggleSettings -> openSettings(shouldOpen = event.shouldOpen)
             is PlayerEvent.ToggleQualitySelection -> openQualitySelection()
             is PlayerEvent.ToggleComments -> openComments()
-            is PlayerEvent.ChangeQuality -> changeVideoQuality(trackIndex = event.trackIndex)
+            is PlayerEvent.PlaybackQuality -> changeVideoQuality(trackIndex = event.trackIndex)
         }
     }
+
+    fun selectFeature(feature: SettingsFeature?) {
+        _selectedFeature.value = feature
+    }
+
+    // Updating Playback speed:
+    fun updatePlaybackSpeed(speed: Float) {
+        _selectedPlaybackSpeed.value = speed // store user preferences
+        player.playbackParameters = PlaybackParameters(_selectedPlaybackSpeed.value)
+        //applyTrackSelection()
+    }
+
 
     /** ✅ Extract track qualities when initialized */
     fun extractAvailableTracks() {
@@ -145,8 +168,13 @@ class PlayerViewModel
             }
         }
 
+        // ✅ Apply track selection
         _trackSelectionParameters.value = builder.build()
         player.trackSelectionParameters = _trackSelectionParameters.value
+
+        // ✅ Apply playback speed separately (since it’s not part of track selection)
+        if (selectedPlaybackSpeed.value != _selectedPlaybackSpeed.value)
+            player.playbackParameters = PlaybackParameters(_selectedPlaybackSpeed.value)
     }
 
     private fun willDisableTrackType(trackType: Int): Boolean {
@@ -173,13 +201,13 @@ class PlayerViewModel
     }
 
 
-
     /** 🔄 Emit One-Time UI Events **/
     private fun sendUiEvent(event: PlayerEvent) {
         viewModelScope.launch {
             _uiEvent.emit(event)
         }
     }
+
     private fun startTrackingProgress() {
         viewModelScope.launch {
             while (true) {
@@ -324,65 +352,60 @@ class PlayerViewModel
     }
 
     private fun openComments() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun openQualitySelection() {
-        TODO("Not yet implemented")
+        
     }
 
-    private fun openSettings() {
-        TODO("Not yet implemented")
+    private fun openSettings(shouldOpen: Boolean) {
+        _isSettingVisible.update { shouldOpen }
     }
 
     private fun toggleScreenLock() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun setSleepTimer(minutes: Int) {
-        TODO("Not yet implemented")
+        
     }
 
     private fun toggleShuffle() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun toggleLoop() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun toggleCaptions() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun toggleSubtitles() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun toggleMute() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun enablePictureInPicture() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun stopPlayer() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun playPrevious() {
-        TODO("Not yet implemented")
+        
     }
 
     private fun playNext() {
-        TODO("Not yet implemented")
+        
     }
-
-    private fun changeSpeed(speed: Float) {
-        TODO("Not yet implemented")
-    }
-
     /** ✅ Checks if the current player has selectable tracks */
     fun willHaveContent(): Boolean {
         return willHaveContent(player.currentTracks)

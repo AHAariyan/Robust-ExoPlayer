@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">RobustExoPlayer</string>
+
+    <!--Setting bottomSheet feature title-->
+    <string name="quality_title" translatable="false">Quality</string>
+    <string name="playback_speed_title" translatable="false">Playback speed</string>
+    <string name="caption_title" translatable="false">Caption</string>
+    <string name="lock_screen_title" translatable="false">Lock screen</string>
+    <string name="sleep_timer_title" translatable="false">Sleep timer</string>
+    <string name="additional_settings_title" translatable="false">Additional settings</string>
 </resources>

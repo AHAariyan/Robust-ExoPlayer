@@ -24,8 +24,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,6 +54,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.hady.robustexoplayer.domain.player.PlayerEvent
+import com.hady.robustexoplayer.presentation.component.SettingsBottomSheet
 import com.hady.robustexoplayer.presentation.view_model.PlayerUiState
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -103,6 +106,7 @@ fun PlayerScreenRoute(
 
 
 @OptIn(UnstableApi::class)
+@kotlin.OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PlayerScreen(
     player: ExoPlayer,
@@ -114,10 +118,23 @@ internal fun PlayerScreen(
     val isFullscreen by playerViewModel.isFullscreen.collectAsStateWithLifecycle()
     val zoomedScale by playerViewModel.zoomScale.collectAsStateWithLifecycle()
 
+    val isSettingsVisible by playerViewModel.isSettingVisible.collectAsStateWithLifecycle()
+    val sheetState = rememberModalBottomSheetState()
+
     val ambientBackgroundAlpha by animateFloatAsState(
         targetValue = if (controlsVisible) 0.6f else 1f, // ✅ Dim background when controls are hidden
         animationSpec = tween(durationMillis = 500, easing = LinearEasing)
     )
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (isSettingsVisible) {
+            SettingsBottomSheet(
+                playerViewModel = playerViewModel,
+                sheetState = sheetState,
+                onDismiss = { playerViewModel.onPlayerEvent(event = PlayerEvent.ToggleSettings(shouldOpen = false)) }
+            )
+        }
+    }
 
 
     /** ✅ Auto-hide controls after inactivity **/

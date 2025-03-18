@@ -8,8 +8,8 @@ sealed class PlayerEvent {
     data class Play(val url: String) : PlayerEvent()
     data object Pause : PlayerEvent()
     data class SeekTo(val positionMs: Long) : PlayerEvent()
-    data class ChangeSpeed(val speed: Float) : PlayerEvent()
-    data class ChangeQuality(val trackIndex: Int) : PlayerEvent()
+    data class PlaybackSpeed(val speed: Float) : PlayerEvent()
+    data class PlaybackQuality(val trackIndex: Int) : PlayerEvent()
     data object Next : PlayerEvent()
     data object Previous : PlayerEvent()
     data object Restart : PlayerEvent()
@@ -31,7 +31,7 @@ sealed class PlayerEvent {
     data class Rewind(val seconds: Int = 10) : PlayerEvent()
 
     // UI Interaction Events
-    data object ToggleSettings : PlayerEvent() // Opens the Settings Menu
+    data class ToggleSettings(val shouldOpen: Boolean) : PlayerEvent() // Opens the Settings Menu
     data object ToggleQualitySelection : PlayerEvent() // Open quality menu
     data object ToggleComments : PlayerEvent() // Show/Hide comments section
 }
