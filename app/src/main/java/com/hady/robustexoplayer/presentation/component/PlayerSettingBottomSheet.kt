@@ -1,5 +1,6 @@
 package com.hady.robustexoplayer.presentation.component
 
+import android.widget.Space
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -15,13 +16,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.hady.robustexoplayer.common.circularPlayIcon
+import com.hady.robustexoplayer.common.subtitlesIcon
 import com.hady.robustexoplayer.common.topBarIcon
+import com.hady.robustexoplayer.common.videoQualityIcon
 import com.hady.robustexoplayer.data.model.SettingsFeature
 import com.hady.robustexoplayer.data.model.settingFeatures
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
@@ -71,12 +75,13 @@ fun SettingsBottomSheet(
                         shouldExpandable = feature is SettingsFeature.Quality || feature is SettingsFeature.PlaybackSpeed,
                         shouldShowValue = feature is SettingsFeature.Quality || feature is SettingsFeature.PlaybackSpeed,
                         title = stringResource(feature.titleResId),
-                        itemIcon = painterResource(circularPlayIcon),
+                        itemIcon = painterResource(id = getFeatureIcon(feature)),
                         showSelectedSpeed = selectedSpeed.value,
                         onItemClick = {
                             playerViewModel.selectFeature(feature)
                         }
                     )
+                    //Spacer(modifier = Modifier.padding(top = 16.dp))
                 }
             } else { // Show the secondary screen with values for the selected feature
                 SettingsDetailsScreen(
@@ -86,5 +91,17 @@ fun SettingsBottomSheet(
                 )
             }
         }
+    }
+}
+
+@Composable
+internal fun getFeatureIcon(feature: SettingsFeature): Int {
+    return when (feature) {
+        is SettingsFeature.Quality -> videoQualityIcon
+        is SettingsFeature.PlaybackSpeed -> circularPlayIcon
+        is SettingsFeature.Captions -> subtitlesIcon
+        is SettingsFeature.LockScreen -> circularPlayIcon
+        is SettingsFeature.SleepTimer -> circularPlayIcon
+        is SettingsFeature.AdditionalSettings -> circularPlayIcon
     }
 }

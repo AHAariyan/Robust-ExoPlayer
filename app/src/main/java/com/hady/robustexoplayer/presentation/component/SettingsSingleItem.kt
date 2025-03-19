@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,20 +50,21 @@ internal fun SettingsSingleItem(
                 if (shouldExpandable) {
                     onItemClick()
                 }
-            }
+            }.padding(top = 8.dp, bottom = 8.dp)
             .fillMaxWidth(),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
+            modifier = Modifier.size(24.dp),
             painter = itemIcon,
-            tint = Color.Black,
+            tint = Color.Black.copy(0.8f),
             contentDescription = null
         )
         Text(
             modifier = Modifier.padding(start = 16.dp),
             text = title,
-            color = Color.Black,
+            color = Color.Black.copy(0.8f),
             fontSize = 16.sp
         )
 
@@ -81,6 +83,7 @@ internal fun SettingsSingleItem(
         }
         if (shouldExpandable) {
             Icon(
+                modifier = Modifier.padding(start = 16.dp).size(24.dp),
                 painter = painterResource(rightArrowIcon),
                 tint = Color.Black.copy(0.5f),
                 contentDescription = null
