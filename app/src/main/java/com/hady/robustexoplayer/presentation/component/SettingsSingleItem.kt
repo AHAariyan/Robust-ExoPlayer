@@ -31,11 +31,14 @@ import com.hady.robustexoplayer.common.qualityTitle
 import com.hady.robustexoplayer.common.rightArrowIcon
 import com.hady.robustexoplayer.common.sleepTimerTitle
 import com.hady.robustexoplayer.ui.theme.RobustExoPlayerTheme
+import java.util.Locale
 
 @Composable
 internal fun SettingsSingleItem(
     shouldExpandable: Boolean,
     shouldShowValue: Boolean,
+    showSelectedValue: String? = null,
+    showSelectedSpeed: Float? = null,
     title: String,
     itemIcon: Painter,
     onItemClick: () -> Unit = {}
@@ -64,10 +67,14 @@ internal fun SettingsSingleItem(
         )
 
         Spacer(modifier = Modifier.weight(1f))
-        if (shouldShowValue) {
+        if (shouldShowValue && showSelectedSpeed != null) {
             Text(
                 modifier = Modifier.padding(start = 16.dp),
-                text = "10",
+                text = if (showSelectedSpeed % 1 == 0f) {
+                    "${showSelectedSpeed.toInt()}x"  // Show integer if there's no decimal part
+                } else {
+                    String.format(Locale.US, "%.2fx", showSelectedSpeed)  // Force US locale for decimal formatting
+                },
                 color = Color.Black.copy(.5f),
                 fontSize = 16.sp
             )

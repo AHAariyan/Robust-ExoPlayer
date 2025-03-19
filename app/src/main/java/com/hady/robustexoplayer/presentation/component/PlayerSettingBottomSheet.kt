@@ -1,6 +1,5 @@
 package com.hady.robustexoplayer.presentation.component
 
-import android.widget.Space
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -25,7 +24,6 @@ import com.hady.robustexoplayer.common.circularPlayIcon
 import com.hady.robustexoplayer.common.topBarIcon
 import com.hady.robustexoplayer.data.model.SettingsFeature
 import com.hady.robustexoplayer.data.model.settingFeatures
-import com.hady.robustexoplayer.domain.player.PlayerEvent
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
 
 
@@ -38,6 +36,7 @@ fun SettingsBottomSheet(
     onDismiss: () -> Unit
 ) {
     val selectedFeature by playerViewModel.selectedFeature.collectAsStateWithLifecycle()
+    val selectedSpeed = playerViewModel.selectedPlaybackSpeed.collectAsStateWithLifecycle()
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -61,7 +60,7 @@ fun SettingsBottomSheet(
             Icon(
                 painter = painterResource(topBarIcon),
                 contentDescription = null,
-                tint = Color.Black
+                tint = Color.Gray.copy(alpha = 0.2f)
             )
 
             Spacer(modifier = Modifier.padding(top = 8.dp))
@@ -73,41 +72,17 @@ fun SettingsBottomSheet(
                         shouldShowValue = feature is SettingsFeature.Quality || feature is SettingsFeature.PlaybackSpeed,
                         title = stringResource(feature.titleResId),
                         itemIcon = painterResource(circularPlayIcon),
+                        showSelectedSpeed = selectedSpeed.value,
                         onItemClick = {
                             playerViewModel.selectFeature(feature)
-//                            when (feature) {
-//                                is SettingsFeature.Quality -> {
-//                                    // Open Quality Selection
-//                                    playerViewModel.onPlayerEvent(PlayerEvent.ToggleQualitySelection)
-//                                }
-//                                is SettingsFeature.PlaybackSpeed -> {
-//                                    // Open Playback Speed Selection
-//                                    playerViewModel.onPlayerEvent(PlayerEvent.PlaybackSpeed(speed = 1.0f))
-//                                }
-//                                is SettingsFeature.Captions -> {
-//                                    // Toggle Captions
-//                                    playerViewModel.onPlayerEvent(PlayerEvent.ToggleCaptions)
-//                                }
-//                                is SettingsFeature.LockScreen -> {
-//                                    // Lock/Unlock Screen
-//                                    playerViewModel.onPlayerEvent(PlayerEvent.ToggleScreenLock)
-//                                }
-//                                is SettingsFeature.SleepTimer -> {
-//                                    // Open Sleep Timer
-//                                    playerViewModel.onPlayerEvent(PlayerEvent.SetSleepTimer(30)) // Example: 30 min
-//                                }
-//                                is SettingsFeature.AdditionalSettings -> {
-//                                    // Open Additional Settings
-//                                    //playerViewModel.onPlayerEvent(PlayerEvent.ToggleSettings)
-//                                }
-//                            }
                         }
                     )
                 }
             } else { // Show the secondary screen with values for the selected feature
                 SettingsDetailsScreen(
                     feature = selectedFeature!!,
-                    playerViewModel = playerViewModel
+                    playerViewModel = playerViewModel,
+                    selectedSpeed = selectedSpeed.value
                 )
             }
         }
