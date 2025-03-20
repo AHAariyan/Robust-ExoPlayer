@@ -2,9 +2,14 @@ package com.hady.robustexoplayer.presentation.component
 
 import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.hady.robustexoplayer.data.model.SettingsFeature
+import com.hady.robustexoplayer.domain.player.VideoQualityOptions
 import com.hady.robustexoplayer.presentation.component.speed.PlaybackSpeedComponent
+import com.hady.robustexoplayer.presentation.component.video_quality.AvailableVideoQualityComponent
+import com.hady.robustexoplayer.presentation.component.video_quality.QualityFeaturesComponent
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
 
 @OptIn(UnstableApi::class)
@@ -14,6 +19,8 @@ internal fun SettingsDetailsScreen(
     playerViewModel: PlayerViewModel,
     selectedSpeed: Float
 ) {
+
+    val listOfVideoQualityFeature by playerViewModel.videoQualityFeatureList.collectAsStateWithLifecycle()
 
     when (feature) {
         SettingsFeature.AdditionalSettings -> {}
@@ -28,7 +35,21 @@ internal fun SettingsDetailsScreen(
             )
         }
 
-        SettingsFeature.Quality -> {}
+        SettingsFeature.QualityFeatures -> {
+            QualityFeaturesComponent(
+                videoQualityFeatures = listOfVideoQualityFeature,
+                onFeatureQualitySelected = {feature ->
+                    when(feature) {
+                        VideoQualityOptions.Advanced -> {
+                            playerViewModel.selectFeature(SettingsFeature.ManualQualitySelection)
+                        } else -> {}
+                    }
+                }
+            )
+        }
+        SettingsFeature.ManualQualitySelection -> {
+            AvailableVideoQualityComponent()
+        }
         SettingsFeature.SleepTimer -> {}
     }
 }

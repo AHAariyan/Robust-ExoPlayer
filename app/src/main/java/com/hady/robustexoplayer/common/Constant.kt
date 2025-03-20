@@ -18,6 +18,13 @@ val previousMediaIcon = R.drawable.previous_media_icon
 val smallScreenIcon = R.drawable.small_screen_icon
 val videoQualityIcon = R.drawable.video_qualities_icon
 
+val sleepTimerIcon = R.drawable.sleep_timer
+val playbackSpeedIcon = R.drawable.playback_speed_icon
+val lockIcon = R.drawable.lock_icon
+
+val tickMarkIcon = R.drawable.tick_mark_icon
+val circleIcon = R.drawable.circle_icon
+
 val rightArrowIcon = R.drawable.right_arrow
 val circularPlayIcon = R.drawable.circular_play_button
 
@@ -34,6 +41,16 @@ val captionTitle = R.string.caption_title
 val lockScreenTitle = R.string.lock_screen_title
 val sleepTimerTitle = R.string.sleep_timer_title
 val additionalSettingsTitle = R.string.additional_settings_title
+
+val autoVideoQualityTitle = R.string.auto_video_quality_title
+val highPictureQualityTitle = R.string.high_picture_quality_title
+val dataSaverTitle = R.string.data_saver_title
+val advancedTitle = R.string.advance_title
+
+val autoVideoQualityString = "Auto (Recommended)"
+val highPictureQualityString = "Higher picture quality"
+val dataSaverString = "Data saver"
+val advancedString = "Advanced"
 
 // Arrays:
 val listOfSettingsFeatures = listOf(

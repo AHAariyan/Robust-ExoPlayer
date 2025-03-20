@@ -23,11 +23,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.hady.robustexoplayer.common.circularPlayIcon
+import com.hady.robustexoplayer.common.lockIcon
+import com.hady.robustexoplayer.common.playbackSpeedIcon
+import com.hady.robustexoplayer.common.settingIcon
+import com.hady.robustexoplayer.common.sleepTimerIcon
 import com.hady.robustexoplayer.common.subtitlesIcon
 import com.hady.robustexoplayer.common.topBarIcon
 import com.hady.robustexoplayer.common.videoQualityIcon
 import com.hady.robustexoplayer.data.model.SettingsFeature
 import com.hady.robustexoplayer.data.model.settingFeatures
+import com.hady.robustexoplayer.presentation.component.video_quality.AvailableVideoQualityComponent
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
 
 
@@ -69,39 +74,77 @@ fun SettingsBottomSheet(
 
             Spacer(modifier = Modifier.padding(top = 8.dp))
 
-            if (selectedFeature == null) {
-                settingFeatures.forEach { feature ->
-                    SettingsSingleItem(
-                        shouldExpandable = feature is SettingsFeature.Quality || feature is SettingsFeature.PlaybackSpeed,
-                        shouldShowValue = feature is SettingsFeature.Quality || feature is SettingsFeature.PlaybackSpeed,
-                        title = stringResource(feature.titleResId),
-                        itemIcon = painterResource(id = getFeatureIcon(feature)),
-                        showSelectedSpeed = selectedSpeed.value,
-                        onItemClick = {
-                            playerViewModel.selectFeature(feature)
-                        }
-                    )
-                    //Spacer(modifier = Modifier.padding(top = 16.dp))
+            when(selectedFeature) {
+                SettingsFeature.AdditionalSettings -> {}
+                SettingsFeature.Captions -> {}
+                SettingsFeature.LockScreen -> {}
+                SettingsFeature.ManualQualitySelection -> {
+                    AvailableVideoQualityComponent()
                 }
-            } else { // Show the secondary screen with values for the selected feature
-                SettingsDetailsScreen(
-                    feature = selectedFeature!!,
-                    playerViewModel = playerViewModel,
-                    selectedSpeed = selectedSpeed.value
-                )
+                SettingsFeature.PlaybackSpeed -> {
+                    SettingsDetailsScreen(
+                        feature = selectedFeature!!,
+                        playerViewModel = playerViewModel,
+                        selectedSpeed = selectedSpeed.value
+                    )
+                }
+                SettingsFeature.QualityFeatures -> {
+                    SettingsDetailsScreen(
+                        feature = selectedFeature!!,
+                        playerViewModel = playerViewModel,
+                        selectedSpeed = selectedSpeed.value
+                    )
+                }
+                SettingsFeature.SleepTimer -> {}
+                null -> {
+                    settingFeatures.forEach { feature ->
+                        SettingsSingleItem(
+                            shouldExpandable = feature is SettingsFeature.QualityFeatures || feature is SettingsFeature.PlaybackSpeed,
+                            shouldShowValue = feature is SettingsFeature.QualityFeatures || feature is SettingsFeature.PlaybackSpeed,
+                            title = stringResource(feature.titleResId),
+                            itemIcon = painterResource(id = getFeatureIcon(feature)),
+                            showSelectedSpeed = selectedSpeed.value,
+                            onItemClick = {
+                                playerViewModel.selectFeature(feature)
+                            }
+                        )
+                    }
+                }
+            }
+
+//            if (selectedFeature == null) {
+//                settingFeatures.forEach { feature ->
+//                    SettingsSingleItem(
+//                        shouldExpandable = feature is SettingsFeature.QualityFeatures || feature is SettingsFeature.PlaybackSpeed,
+//                        shouldShowValue = feature is SettingsFeature.QualityFeatures || feature is SettingsFeature.PlaybackSpeed,
+//                        title = stringResource(feature.titleResId),
+//                        itemIcon = painterResource(id = getFeatureIcon(feature)),
+//                        showSelectedSpeed = selectedSpeed.value,
+//                        onItemClick = {
+//                            playerViewModel.selectFeature(feature)
+//                        }
+//                    )
+//                }
+//            } else { // Show the secondary screen with values for the selected feature
+//                SettingsDetailsScreen(
+//                    feature = selectedFeature!!,
+//                    playerViewModel = playerViewModel,
+//                    selectedSpeed = selectedSpeed.value
+//                )
             }
         }
-    }
+    //}
 }
 
 @Composable
 internal fun getFeatureIcon(feature: SettingsFeature): Int {
     return when (feature) {
-        is SettingsFeature.Quality -> videoQualityIcon
-        is SettingsFeature.PlaybackSpeed -> circularPlayIcon
+        is SettingsFeature.QualityFeatures -> videoQualityIcon
+        is SettingsFeature.ManualQualitySelection -> circularPlayIcon
+        is SettingsFeature.PlaybackSpeed -> playbackSpeedIcon
         is SettingsFeature.Captions -> subtitlesIcon
-        is SettingsFeature.LockScreen -> circularPlayIcon
-        is SettingsFeature.SleepTimer -> circularPlayIcon
-        is SettingsFeature.AdditionalSettings -> circularPlayIcon
+        is SettingsFeature.LockScreen -> lockIcon
+        is SettingsFeature.SleepTimer -> sleepTimerIcon
+        is SettingsFeature.AdditionalSettings -> settingIcon
     }
 }

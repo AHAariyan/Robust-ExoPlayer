@@ -1,6 +1,11 @@
 package com.hady.robustexoplayer.domain.player
 
+import androidx.compose.ui.res.stringResource
 import androidx.media3.common.MediaItem
+import com.hady.robustexoplayer.common.advancedString
+import com.hady.robustexoplayer.common.autoVideoQualityString
+import com.hady.robustexoplayer.common.dataSaverString
+import com.hady.robustexoplayer.common.highPictureQualityString
 
 sealed class PlayerEvent {
 
@@ -9,7 +14,7 @@ sealed class PlayerEvent {
     data object Pause : PlayerEvent()
     data class SeekTo(val positionMs: Long) : PlayerEvent()
     data class PlaybackSpeed(val speed: Float) : PlayerEvent()
-    data class PlaybackQuality(val trackIndex: Int) : PlayerEvent()
+    data class PlaybackQuality(val quality: VideoQualityOptions) : PlayerEvent()
     data object Next : PlayerEvent()
     data object Previous : PlayerEvent()
     data object Restart : PlayerEvent()
@@ -34,4 +39,17 @@ sealed class PlayerEvent {
     data class ToggleSettings(val shouldOpen: Boolean) : PlayerEvent() // Opens the Settings Menu
     data object ToggleQualitySelection : PlayerEvent() // Open quality menu
     data object ToggleComments : PlayerEvent() // Show/Hide comments section
+}
+
+enum class VideoQualityOptions(
+    val title: String,
+    val subTitle: String
+) {
+    Auto(title = autoVideoQualityString, subTitle = "Adjusts to give you the best experience for your conditions"),
+    HighQuality(
+        title = highPictureQualityString,
+        subTitle = "Uses more data for better quality"
+    ),
+    DataSaver(title = dataSaverString, subTitle = "Lower picture quality to save data"),
+    Advanced(title = advancedString, subTitle = "Select a specific resolution") // Manually select resolution
 }

@@ -8,4 +8,9 @@
     <string name="lock_screen_title" translatable="false">Lock screen</string>
     <string name="sleep_timer_title" translatable="false">Sleep timer</string>
     <string name="additional_settings_title" translatable="false">Additional settings</string>
+
+    <string name="auto_video_quality_title" translatable="false">Auto (Recommended)</string>
+    <string name="high_picture_quality_title" translatable="false">Higher picture quality</string>
+    <string name="data_saver_title" translatable="false">Data saver</string>
+    <string name="advance_title" translatable="false">Advanced</string>
 </resources>

@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -29,11 +28,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,7 +49,7 @@ import com.hady.robustexoplayer.common.playIcon
 import com.hady.robustexoplayer.common.settingIcon
 import com.hady.robustexoplayer.common.subtitlesIcon
 import com.hady.robustexoplayer.domain.player.PlayerEvent
-import com.hady.robustexoplayer.presentation.component.PlayerThinSlider
+import com.hady.robustexoplayer.presentation.component.player.PlayerThinSlider
 import com.hady.robustexoplayer.presentation.view_model.PlayerUiState
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
 import kotlinx.coroutines.delay

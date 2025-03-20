@@ -16,6 +16,7 @@ import com.hady.robustexoplayer.data.model.SettingsFeature
 import com.hady.robustexoplayer.data.model.TrackInfo
 import com.hady.robustexoplayer.di.ExoPlayerManager
 import com.hady.robustexoplayer.domain.player.PlayerEvent
+import com.hady.robustexoplayer.domain.player.VideoQualityOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -74,6 +75,16 @@ class PlayerViewModel
     private val _selectedFeature = MutableStateFlow<SettingsFeature?>(null)
     val selectedFeature: StateFlow<SettingsFeature?> = _selectedFeature.asStateFlow()
 
+    private val _selectedQualityOption =
+        MutableStateFlow<VideoQualityOptions>(VideoQualityOptions.Auto)
+    val selectedQualityOption: StateFlow<VideoQualityOptions> = _selectedQualityOption.asStateFlow()
+
+    private val _videoQualityFeatureList =
+        MutableStateFlow<List<Pair<VideoQualityOptions, Boolean>>>(emptyList())
+    val videoQualityFeatureList: StateFlow<List<Pair<VideoQualityOptions, Boolean>>> =
+        _videoQualityFeatureList.asStateFlow()
+
+
     val overrides: StateFlow<Map<TrackGroup, TrackSelectionOverride>> =
         trackSelectionParameters.map { it.overrides }
             .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
@@ -87,7 +98,7 @@ class PlayerViewModel
         startTrackingProgress()
         observePlayerEvents()
 
-
+        updateVideoQualityFeatures()
     }
 
     /** 🔹 Handle Player Events **/
@@ -115,7 +126,7 @@ class PlayerViewModel
             is PlayerEvent.ToggleSettings -> openSettings(shouldOpen = event.shouldOpen)
             is PlayerEvent.ToggleQualitySelection -> openQualitySelection()
             is PlayerEvent.ToggleComments -> openComments()
-            is PlayerEvent.PlaybackQuality -> changeVideoQuality(trackIndex = event.trackIndex)
+            is PlayerEvent.PlaybackQuality -> updateVideoQuality(videoQualityOptions = event.quality)
         }
     }
 
@@ -179,6 +190,97 @@ class PlayerViewModel
 
     private fun willDisableTrackType(trackType: Int): Boolean {
         return trackSelectionParameters.value.disabledTrackTypes.contains(trackType)
+    }
+
+
+
+    private fun updateVideoQualityFeatures() {
+        _videoQualityFeatureList.value = VideoQualityOptions.entries.map { it to (it == VideoQualityOptions.Auto) }
+    }
+
+    fun updateVideoQuality(
+        videoQualityOptions: VideoQualityOptions
+    ) {
+        applyQualitySelection(videoQualityOptions = videoQualityOptions)
+    }
+
+    private fun applyQualitySelection(videoQualityOptions: VideoQualityOptions) {
+        when (videoQualityOptions) {
+            VideoQualityOptions.Auto -> enableAdaptiveStreaming()
+            VideoQualityOptions.HighQuality -> setHighBitrate()
+            VideoQualityOptions.DataSaver -> setLowBitrate()
+            VideoQualityOptions.Advanced -> openAdvancedQualitySelection()
+        }
+    }
+
+    private fun enableAdaptiveStreaming() {
+        _trackSelectionParameters.update { params ->
+            params.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_VIDEO) // clear manual selection
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false) // enable auto-adaptive
+                .build()
+        }
+
+        player.trackSelectionParameters = _trackSelectionParameters.value
+    }
+
+    private fun setHighBitrate() {
+        val trackGroup = player.currentTracks.groups.filter { track ->
+            track.type == C.TRACK_TYPE_VIDEO
+        }
+
+        if (trackGroup.isEmpty()) return
+
+        val highestQualityTrackGroup = trackGroup.maxByOrNull { track ->
+            track.mediaTrackGroup.length
+        } ?: return
+
+        val highestQualityIndex =
+            highestQualityTrackGroup.length - 1 // Last track is usually highest
+
+        val override =
+            TrackSelectionOverride(highestQualityTrackGroup.mediaTrackGroup, highestQualityIndex)
+
+        _trackSelectionParameters.update { params ->
+            params.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                .addOverride(override) // Apply highes quality
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+                .build()
+        }
+
+        player.trackSelectionParameters = _trackSelectionParameters.value
+    }
+
+    private fun setLowBitrate() {
+        val trackGroup = player.currentTracks.groups.filter { track ->
+            track.type == C.TRACK_TYPE_VIDEO
+        }
+
+        if (trackGroup.isEmpty()) return
+
+        val lowestQualityTrackGroup = trackGroup.minByOrNull { track ->
+            track.mediaTrackGroup.length
+        } ?: return
+
+        val lowestQualityIndex = 0 // First track is usually the lowest
+
+        val override =
+            TrackSelectionOverride(lowestQualityTrackGroup.mediaTrackGroup, lowestQualityIndex)
+
+        _trackSelectionParameters.update { params ->
+            params.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                .addOverride(override) // Apply lowest quality
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false)
+                .build()
+        }
+
+        player.trackSelectionParameters = _trackSelectionParameters.value
+    }
+
+    private fun openAdvancedQualitySelection() {
+        onPlayerEvent(event = PlayerEvent.ToggleQualitySelection)
     }
 
     fun changeVideoQuality(trackIndex: Int) {
@@ -352,11 +454,11 @@ class PlayerViewModel
     }
 
     private fun openComments() {
-        
+
     }
 
     private fun openQualitySelection() {
-        
+
     }
 
     private fun openSettings(shouldOpen: Boolean) {
@@ -364,48 +466,49 @@ class PlayerViewModel
     }
 
     private fun toggleScreenLock() {
-        
+
     }
 
     private fun setSleepTimer(minutes: Int) {
-        
+
     }
 
     private fun toggleShuffle() {
-        
+
     }
 
     private fun toggleLoop() {
-        
+
     }
 
     private fun toggleCaptions() {
-        
+
     }
 
     private fun toggleSubtitles() {
-        
+
     }
 
     private fun toggleMute() {
-        
+
     }
 
     private fun enablePictureInPicture() {
-        
+
     }
 
     private fun stopPlayer() {
-        
+
     }
 
     private fun playPrevious() {
-        
+
     }
 
     private fun playNext() {
-        
+
     }
+
     /** ✅ Checks if the current player has selectable tracks */
     fun willHaveContent(): Boolean {
         return willHaveContent(player.currentTracks)
