@@ -34,12 +34,18 @@ import com.hady.robustexoplayer.common.sleepTimerTitle
 import com.hady.robustexoplayer.ui.theme.RobustExoPlayerTheme
 import java.util.Locale
 
+/**
+ * Expandable value should show only for the following features:
+ *      1. Quality          Auto (360p)
+ *      2. Playback speed   1x
+ *      3. Sleep timer      Off/On
+ */
+
 @Composable
 internal fun SettingsSingleItem(
     shouldExpandable: Boolean,
     shouldShowValue: Boolean,
-    showSelectedValue: String? = null,
-    showSelectedSpeed: Float? = null,
+    showSelectedValue: String ?= null,
     title: String,
     itemIcon: Painter,
     onItemClick: () -> Unit = {}
@@ -69,14 +75,10 @@ internal fun SettingsSingleItem(
         )
 
         Spacer(modifier = Modifier.weight(1f))
-        if (shouldShowValue && showSelectedSpeed != null) {
+        if (shouldShowValue && showSelectedValue != null) {
             Text(
                 modifier = Modifier.padding(start = 16.dp),
-                text = if (showSelectedSpeed % 1 == 0f) {
-                    "${showSelectedSpeed.toInt()}x"  // Show integer if there's no decimal part
-                } else {
-                    String.format(Locale.US, "%.2fx", showSelectedSpeed)  // Force US locale for decimal formatting
-                },
+                text = showSelectedValue,
                 color = Color.Black.copy(.5f),
                 fontSize = 16.sp
             )

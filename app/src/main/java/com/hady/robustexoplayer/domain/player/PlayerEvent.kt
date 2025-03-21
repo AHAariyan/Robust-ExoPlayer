@@ -6,6 +6,8 @@ import com.hady.robustexoplayer.common.advancedString
 import com.hady.robustexoplayer.common.autoVideoQualityString
 import com.hady.robustexoplayer.common.dataSaverString
 import com.hady.robustexoplayer.common.highPictureQualityString
+import com.hady.robustexoplayer.data.model.SettingsFeature
+import com.hady.robustexoplayer.data.model.VideoQualityOptions
 
 sealed class PlayerEvent {
 
@@ -41,15 +43,15 @@ sealed class PlayerEvent {
     data object ToggleComments : PlayerEvent() // Show/Hide comments section
 }
 
-enum class VideoQualityOptions(
-    val title: String,
-    val subTitle: String
-) {
-    Auto(title = autoVideoQualityString, subTitle = "Adjusts to give you the best experience for your conditions"),
-    HighQuality(
-        title = highPictureQualityString,
-        subTitle = "Uses more data for better quality"
-    ),
-    DataSaver(title = dataSaverString, subTitle = "Lower picture quality to save data"),
-    Advanced(title = advancedString, subTitle = "Select a specific resolution") // Manually select resolution
-}
+//enum class VideoQualityOptions(
+//    val title: String,
+//    val subTitle: String
+//) {
+//    Auto(title = autoVideoQualityString, subTitle = "Adjusts to give you the best experience for your conditions"),
+//    HighQuality(
+//        title = highPictureQualityString,
+//        subTitle = "Uses more data for better quality"
+//    ),
+//    DataSaver(title = dataSaverString, subTitle = "Lower picture quality to save data"),
+//    Advanced(title = advancedString, subTitle = "Select a specific resolution") // Manually select resolution
+//}

@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hady.robustexoplayer.common.circleIcon
 import com.hady.robustexoplayer.common.tickMarkIcon
-import com.hady.robustexoplayer.domain.player.VideoQualityOptions
+import com.hady.robustexoplayer.data.model.VideoQualityOptions
 import com.hady.robustexoplayer.ui.theme.RobustExoPlayerTheme
 
 
