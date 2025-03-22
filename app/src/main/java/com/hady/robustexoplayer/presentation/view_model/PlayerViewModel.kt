@@ -1,15 +1,19 @@
 package com.hady.robustexoplayer.presentation.view_model
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.TrackGroup
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.hady.robustexoplayer.data.model.SettingsFeature
@@ -29,7 +33,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.lang.Thread.State
 import javax.inject.Inject
 
 @HiltViewModel
@@ -81,9 +84,29 @@ class PlayerViewModel
     private val _selectedQualityOption = MutableStateFlow<VideoQualityOptions>(VideoQualityOptions.Auto)
     val selectedQualityOption: StateFlow<VideoQualityOptions> = _selectedQualityOption.asStateFlow()
 
+    // Holds manually selectable video resolutions
+    private val _availableVideoResolutions = MutableStateFlow<List<Pair<String, TrackSelectionOverride>>>(emptyList())
+    val availableVideoResolutions: StateFlow<List<Pair<String, TrackSelectionOverride>>> = _availableVideoResolutions.asStateFlow()
+
+    private val _availableVideoTracks = MutableStateFlow<List<Pair<Int, String>>>(emptyList())
+    val availableVideoTracks: StateFlow<List<Pair<Int, String>>> = _availableVideoTracks.asStateFlow()
+
+
+    // Running video resolution
+    private val _currentPlayingResolution = MutableStateFlow<String?>(null)
+    val currentPlayingResolution: StateFlow<String?> = _currentPlayingResolution.asStateFlow()
+
+    // 🔹 Holds the track index of the currently playing resolution
+    private val _currentPlayingTrackIndex = MutableStateFlow<Int?>(null)
+    val currentPlayingTrackIndex: StateFlow<Int?> = _currentPlayingTrackIndex.asStateFlow()
+
     // Total menus available for video quality selection
     private val _videoQualityFeatureList = MutableStateFlow<List<Pair<VideoQualityOptions, Boolean>>>(emptyList())
     val videoQualityFeatureList: StateFlow<List<Pair<VideoQualityOptions, Boolean>>> = _videoQualityFeatureList.asStateFlow()
+
+    // Track which feature is selected
+    private val _selectedVideoQualityFeatures = MutableStateFlow<VideoQualityOptions>(VideoQualityOptions.Auto)
+    val selectedVideoQualityFeatures: StateFlow<VideoQualityOptions> = _selectedVideoQualityFeatures.asStateFlow()
 
     // Track override by user selection
     private val overrides: StateFlow<Map<TrackGroup, TrackSelectionOverride>> =
@@ -103,7 +126,7 @@ class PlayerViewModel
         observePlayerEvents()
 
         // Available menus of Video quality selection feature - Bottom Sheet (Always static)
-        updateVideoQualityFeatures()
+        updateVideoQualityFeatures(selectedVideoQualityFeature = selectedVideoQualityFeatures.value)
     }
 
     /** Handle Player Events **/
@@ -155,10 +178,73 @@ class PlayerViewModel
      * ////////////////////////////////////////////////////////// VIDEO PART /////////////////////////////////////////////////////////////////
      */
 
+    // ✅ Extracts all available tracks and stores video resolutions separately
+//    private fun extractAvailableTracks() {
+//        val tracks = player.currentTracks
+//        val extractedTracks = mutableMapOf<Int, List<Tracks.Group>>()
+//        val resolutionList = mutableListOf<Pair<String, TrackSelectionOverride>>()
+//
+//        SUPPORTED_TRACK_TYPES.forEach { trackType ->
+//            val trackGroups = tracks.groups.filter { it.type == trackType }
+//            if (trackGroups.isNotEmpty()) {
+//                extractedTracks[trackType] = trackGroups
+//            }
+//
+//            // ✅ Extract video resolutions for manual selection
+//            if (trackType == C.TRACK_TYPE_VIDEO) {
+//                trackGroups.forEach { trackGroup ->
+//                    val mediaTrackGroup = trackGroup.mediaTrackGroup
+//                    for (i in 0 until mediaTrackGroup.length) {
+//                        val format = mediaTrackGroup.getFormat(i)
+//                        val resolution = "${format.height}p" // Example: "360p", "720p"
+//
+//                        val override = TrackSelectionOverride(mediaTrackGroup, i) // Manual selection override
+//                        resolutionList.add(resolution to override)
+//                    }
+//                }
+//            }
+//        }
+//
+//        _availableTracks.value = extractedTracks
+//        _availableVideoResolutions.value = resolutionList.distinctBy { it.first } // Remove duplicate resolutions
+//    }
+
+    private fun extractAvailableTracks() {
+        val tracks = player.currentTracks
+        val extractedTracks = mutableMapOf<Int, List<Tracks.Group>>()
+        val resolutionList = mutableListOf<Pair<Int, String>>() // ✅ Store (trackIndex, resolution)
+
+        SUPPORTED_TRACK_TYPES.forEach { trackType ->
+            val trackGroups = tracks.groups.filter { it.type == trackType }
+            if (trackGroups.isNotEmpty()) {
+                extractedTracks[trackType] = trackGroups
+            }
+
+            // ✅ Extract video resolutions for manual selection
+            if (trackType == C.TRACK_TYPE_VIDEO) {
+                trackGroups.forEach { trackGroup ->
+                    val mediaTrackGroup = trackGroup.mediaTrackGroup
+                    for (i in 0 until mediaTrackGroup.length) {
+                        val format = mediaTrackGroup.getFormat(i)
+                        val resolution = "${format.height}p" // Example: "360p", "720p"
+
+                        resolutionList.add(i to resolution) // ✅ Store trackIndex with resolution
+                    }
+                }
+            }
+        }
+
+        _availableTracks.value = extractedTracks
+        _availableVideoTracks.value = resolutionList.distinctBy { it.second } // ✅ Remove duplicate resolutions
+    }
+
     // When use change the quality - Entry point of interacting with the quality selection
     private fun updateVideoQuality(
         videoQualityOptions: VideoQualityOptions
     ) {
+        // Update the video quality feature selection:
+        updateVideoQualityFeatures(selectedVideoQualityFeature = videoQualityOptions)
+        Log.d("ON_PLAY_EVENT", "updateVideoQuality: CALLED")
         applyQualitySelection(videoQualityOptions = videoQualityOptions)
     }
 
@@ -247,7 +333,7 @@ class PlayerViewModel
     }
 
     // When user select a specific quality
-    fun changeVideoQuality(trackIndex: Int) {
+    fun updateVideoQuality(trackIndex: Int) {
         val trackGroups = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }
         if (trackGroups.isEmpty()) return // No video tracks available
 
@@ -293,8 +379,6 @@ class PlayerViewModel
     ) {
         exoPlayerManager.preparePlayer(url, drmConfig, adsConfig)
         _playerUiState.update { it.copy(currentUrl = url, isPlaying = true) }
-
-        extractAvailableTracks()
     }
 
     private fun togglePlayPause() {
@@ -371,6 +455,7 @@ class PlayerViewModel
     private val SUPPORTED_TRACK_TYPES = listOf(
         C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_TEXT, C.TRACK_TYPE_IMAGE
     )
+
     /**
      * ////////////////////////////////////////////////////////// [END] UTILITY /////////////////////////////////////////////////////////////////
      */
@@ -379,22 +464,29 @@ class PlayerViewModel
      * ////////////////////////////////////////////////////////// [START] ExoPlayer Events - Default One /////////////////////////////////////////////////////////////////
      */
 
-    /** 🔄 Track Player Events **/
+    // Track Player Events
+
     private fun observePlayerEvents() {
         player.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                _playerUiState.update {
-                    it.copy(
-                        isBuffering = playbackState == Player.STATE_BUFFERING, // ✅ Update buffering state
-                        progress = player.currentPosition.toFloat() / player.duration.toFloat(),
-                        currentPosition = formatTime(player.currentPosition),
-                        totalDuration = formatTime(player.duration)
-                    )
-                }
-            }
 
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                _playerUiState.update { it.copy(isPlaying = isPlaying) }
+            override fun onEvents(player: Player, events: Player.Events) {
+                Log.d("PlayerEvent", "🔄 Player Events Triggered: $events")
+
+                if (events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)) {
+                    handlePlaybackStateChanged(player)
+                }
+                if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) {
+                    _playerUiState.update { it.copy(isPlaying = player.isPlaying) }
+                }
+                if (events.contains(Player.EVENT_TRACKS_CHANGED)) {
+                    handleTracksChanged(player.currentTracks)
+                }
+                if (events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)) {
+                    handleMetadataChanged(player.mediaMetadata)
+                }
+                if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
+                    detectCurrentPlayingResolution()
+                }
             }
 
             override fun onPositionDiscontinuity(
@@ -402,12 +494,182 @@ class PlayerViewModel
                 newPosition: Player.PositionInfo,
                 reason: Int
             ) {
-                _playerUiState.update {
-                    it.copy(currentPosition = formatTime(newPosition.positionMs))
+                handlePositionDiscontinuity(player, oldPosition, newPosition, reason)
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                handleTracksChanged(tracks)
+            }
+
+            override fun onRenderedFirstFrame() {
+                viewModelScope.launch {
+                    delay(1000) // ✅ Allow time for the resolution to stabilize
+                    detectCurrentPlayingResolution()
                 }
+            }
+
+            override fun onSurfaceSizeChanged(width: Int, height: Int) {
+                detectCurrentPlayingResolution()
+            }
+
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                detectCurrentPlayingResolution()
             }
         })
     }
+
+    private fun handlePositionDiscontinuity(
+        player: Player,
+        oldPosition: Player.PositionInfo? = null,
+        newPosition: Player.PositionInfo? = null,
+        reason: Int
+    ) {
+        val reasonMessage = when (reason) {
+            Player.DISCONTINUITY_REASON_AUTO_TRANSITION -> "Auto-transition to next media item."
+            Player.DISCONTINUITY_REASON_SEEK -> "User performed seek."
+            Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT -> "Seek position adjusted."
+            Player.DISCONTINUITY_REASON_SKIP -> "Skipped media item."
+            Player.DISCONTINUITY_REASON_REMOVE -> "Media item removed from playlist."
+            Player.DISCONTINUITY_REASON_INTERNAL -> "Internal player transition."
+            Player.DISCONTINUITY_REASON_SILENCE_SKIP -> "Silence skipped."
+            else -> "Unknown reason."
+        }
+
+        Log.d("PlayerEvent", "🔄 Position Discontinuity: $reasonMessage")
+
+        _playerUiState.update {
+            it.copy(
+                currentPosition = formatTime(player.currentPosition),
+                totalDuration = formatTime(player.duration),
+                progress = if (player.duration > 0) player.currentPosition.toFloat() / player.duration else 0f
+            )
+        }
+    }
+
+    private fun detectCurrentPlayingResolution() {
+        val trackResolution = player.videoFormat?.height ?: 0 // Metadata resolution
+        val renderedResolution = player.videoSize.height // Rendered resolution
+        val decoderResolution = getRealTimeDecoderResolution()?.second ?: 0 // Decoder resolution
+
+        val resolutions = listOf(trackResolution, renderedResolution, decoderResolution)
+            .filter { it > 0 } // ✅ Remove invalid values
+            .distinct() // ✅ Avoid duplicates
+            .sortedDescending() // ✅ Sort in descending order (highest first)
+
+        val finalResolution = resolutions.firstOrNull() ?: 0 // ✅ Get highest available resolution
+
+        val resolutionString = "${finalResolution}p" // ✅ Convert to standard format
+
+        if (_currentPlayingResolution.value != resolutionString) {
+            _currentPlayingResolution.value = resolutionString
+            Log.d("TrackDebug", "📢 Real-Time Playing Resolution Updated: $resolutionString")
+        }
+
+        // ✅ Debugging logs
+        Log.d("TrackDebug", "🧐 Available Resolutions -> Track: $trackResolution, Rendered: $renderedResolution, Decoder: $decoderResolution")
+    }
+
+
+    private fun getRealTimeDecoderResolution(): Pair<Int, Int>? {
+        val decoderCounters = player.videoDecoderCounters ?: return null
+
+        val width = decoderCounters.renderedOutputBufferCount
+        val height = player.videoSize.height // Usually contains the decoded height
+
+        return if (width > 0 && height > 0) Pair(width, height) else null
+    }
+    private fun handlePlaybackStateChanged(player: Player) {
+        val playbackState = player.playbackState
+        val playbackStateMessage = when (playbackState) {
+            Player.STATE_READY -> "Player is ready to play."
+            Player.STATE_BUFFERING -> "Buffering..."
+            Player.STATE_ENDED -> "Playback ended."
+            Player.STATE_IDLE -> "Player is idle."
+            else -> "Unknown playback state."
+        }
+
+        Log.d("PlayerEvent", "🎬 Playback State: $playbackStateMessage")
+
+        _playerUiState.update {
+            it.copy(
+                isBuffering = playbackState == Player.STATE_BUFFERING,
+                progress = if (player.duration > 0) player.currentPosition.toFloat() / player.duration else 0f,
+                currentPosition = formatTime(player.currentPosition),
+                totalDuration = formatTime(player.duration)
+            )
+        }
+    }
+
+    private fun handleTracksChanged(tracks: Tracks) {
+        extractAvailableTracks()
+
+        val activeTrack = tracks.groups.firstOrNull { track ->
+            track.isSelected && track.type == C.TRACK_TYPE_VIDEO
+        }
+
+        activeTrack?.let { track ->
+            val format = track.getTrackFormat(0)
+            val resolution = "${format.height}p" // Directly use height
+            val trackIndex = track.mediaTrackGroup.indexOf(format)
+
+            if (_currentPlayingResolution.value != resolution || _currentPlayingTrackIndex.value != trackIndex) {
+                _currentPlayingResolution.value = resolution
+                _currentPlayingTrackIndex.value = trackIndex
+                Log.d("TrackDebug", "✅ New Resolution Selected: $resolution")
+            }
+        }
+    }
+
+
+    private fun handleMetadataChanged(mediaMetadata: MediaMetadata) {
+        Log.d("PlayerEvent", "🎵 Media Metadata Changed: ${mediaMetadata.title}")
+    }
+
+//    private fun observePlayerEvents() {
+//        player.addListener(object : Player.Listener {
+//            override fun onPlaybackStateChanged(playbackState: Int) {
+//                _playerUiState.update {
+//                    it.copy(
+//                        isBuffering = playbackState == Player.STATE_BUFFERING, // ✅ Update buffering state
+//                        progress = player.currentPosition.toFloat() / player.duration.toFloat(),
+//                        currentPosition = formatTime(player.currentPosition),
+//                        totalDuration = formatTime(player.duration)
+//                    )
+//                }
+//            }
+//
+//            override fun onIsPlayingChanged(isPlaying: Boolean) {
+//                _playerUiState.update { it.copy(isPlaying = isPlaying) }
+//            }
+//
+//            override fun onPositionDiscontinuity(
+//                oldPosition: Player.PositionInfo,
+//                newPosition: Player.PositionInfo,
+//                reason: Int
+//            ) {
+//                _playerUiState.update {
+//                    it.copy(currentPosition = formatTime(newPosition.positionMs))
+//                }
+//            }
+//
+//            override fun onTracksChanged(tracks: Tracks) {
+//                extractAvailableTracks()
+//
+//                // Detect currently playing resolution
+//                val activeTrack = tracks.groups.firstOrNull { track ->
+//                    track.isSelected && track.type == C.TRACK_TYPE_VIDEO
+//                }
+//
+//                activeTrack?.let { t ->
+//                    val format = t.getTrackFormat(0) // get the active track format
+//                    val resolution = "${format.height}p"
+//                    _currentPlayingResolution.value = resolution
+//
+//                    Log.d("TrackDebug", "Current Playing Resolution: $resolution")
+//                }
+//            }
+//        })
+//    }
 
     /**
      * ////////////////////////////////////////////////////////// [END] ExoPlayer Events - Default One /////////////////////////////////////////////////////////////////
@@ -483,18 +745,16 @@ class PlayerViewModel
      */
 
     /** Extract track qualities when initialized */
-    private fun extractAvailableTracks() {
-        val tracks = player.currentTracks
-        val extractedTracks = mutableMapOf<Int, List<Tracks.Group>>()
+    // Checks if the current player has selectable tracks
+    fun willHaveContent(): Boolean {
+        return willHaveContent(player.currentTracks)
+    }
 
-        SUPPORTED_TRACK_TYPES.forEach { trackType ->
-            val trackGroups = tracks.groups.filter { it.type == trackType }
-            if (trackGroups.isNotEmpty()) {
-                extractedTracks[trackType] = trackGroups
-            }
+    // Checks if any supported track types exist in the given track list
+    fun willHaveContent(tracks: Tracks): Boolean {
+        return tracks.groups.any { trackGroup ->
+            SUPPORTED_TRACK_TYPES.contains(trackGroup.type)
         }
-
-        _availableTracks.value = extractedTracks
     }
 
     /** ✅ Disable/Enable Track Type */
@@ -532,22 +792,13 @@ class PlayerViewModel
         return trackSelectionParameters.value.disabledTrackTypes.contains(trackType)
     }
 
-    private fun updateVideoQualityFeatures() {
+    private fun updateVideoQualityFeatures(selectedVideoQualityFeature: VideoQualityOptions) {
+        _selectedVideoQualityFeatures.value = selectedVideoQualityFeature
         _videoQualityFeatureList.value =
-            VideoQualityOptions.entries.map { it to (it == VideoQualityOptions.Auto) }
+            VideoQualityOptions.entries.map { it to (it == selectedVideoQualityFeature) }
     }
 
-    // Checks if the current player has selectable tracks
-    fun willHaveContent(): Boolean {
-        return willHaveContent(player.currentTracks)
-    }
 
-    // Checks if any supported track types exist in the given track list
-    fun willHaveContent(tracks: Tracks): Boolean {
-        return tracks.groups.any { trackGroup ->
-            SUPPORTED_TRACK_TYPES.contains(trackGroup.type)
-        }
-    }
 
 
 }

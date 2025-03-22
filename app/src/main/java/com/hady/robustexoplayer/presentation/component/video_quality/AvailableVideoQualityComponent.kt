@@ -1,5 +1,6 @@
 package com.hady.robustexoplayer.presentation.component.video_quality
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,12 +20,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.TrackSelectionOverride
 import com.hady.robustexoplayer.common.circleIcon
 import com.hady.robustexoplayer.common.tickMarkIcon
 import com.hady.robustexoplayer.ui.theme.RobustExoPlayerTheme
 
 @Composable
 internal fun AvailableVideoQualityComponent(
+    availableVideoTracks: List<Pair<Int, String>>,
+    currentPlayingTrackIndex: Int?,
+    onQualitySelected: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -52,21 +57,27 @@ internal fun AvailableVideoQualityComponent(
                 tint = Color.Gray
             )
 
-
-            Text(
-                text = "360p",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = Color.Black
-            )
+            currentPlayingTrackIndex?.let { index ->
+                availableVideoTracks.find { it.first == index }?.second?.let { resolution ->
+                    Text(
+                        text = resolution,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color.Black
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.padding(top = 16.dp))
 
         LazyColumn {
-            items(5) { index ->
+            items(availableVideoTracks.size) { index ->
+                val (trackIndex, resolution) = availableVideoTracks[index]
                 VideoQualitySingleItem(
-                    title = index + 155
+                    title = resolution,
+                    isSelected = currentPlayingTrackIndex == trackIndex,
+                    onQualitySelected = { onQualitySelected(trackIndex) } // ✅ Pass track index
                 )
             }
         }
@@ -74,21 +85,32 @@ internal fun AvailableVideoQualityComponent(
 }
 
 @Composable
-internal fun VideoQualitySingleItem(title: Int) {
+internal fun VideoQualitySingleItem(
+    title: String,
+    isSelected: Boolean,
+    onQualitySelected: () -> Unit
+) {
     Row(
         modifier = Modifier
+            .clickable {
+                onQualitySelected()
+            }
             .fillMaxWidth()
             .padding(top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            modifier = Modifier.size(24.dp),
-            painter = painterResource(tickMarkIcon),
-            contentDescription = null,
-            tint = Color.Black
-        )
 
+        if (isSelected) {
+            Icon(
+                modifier = Modifier.size(24.dp),
+                painter = painterResource(tickMarkIcon),
+                contentDescription = null,
+                tint = Color.Black
+            )
+        } else {
+            Spacer(modifier = Modifier.padding(start = 24.dp))
+        }
 
         Column(
             modifier = Modifier
@@ -98,7 +120,7 @@ internal fun VideoQualitySingleItem(title: Int) {
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = title.toString(),
+                text = title,
                 color = Color.Black,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
@@ -109,12 +131,16 @@ internal fun VideoQualitySingleItem(title: Int) {
 }
 
 
-@Composable
-@Preview
-internal fun PreviewAvailableVideoQualityComponent() {
-    RobustExoPlayerTheme {
-        Column {
-            AvailableVideoQualityComponent()
-        }
-    }
-}
+//@Composable
+//@Preview
+//internal fun PreviewAvailableVideoQualityComponent() {
+//    RobustExoPlayerTheme {
+//        Column {
+//            AvailableVideoQualityComponent(
+//                availableVideoResolution = emptyList(),
+//                currentPlayingResolution = "",
+//                onQualitySelected = {}
+//            )
+//        }
+//    }
+//}

@@ -1,6 +1,6 @@
 package com.hady.robustexoplayer.presentation.component
 
-import android.widget.Space
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,15 +11,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.hady.robustexoplayer.common.circularPlayIcon
@@ -31,8 +33,12 @@ import com.hady.robustexoplayer.common.subtitlesIcon
 import com.hady.robustexoplayer.common.topBarIcon
 import com.hady.robustexoplayer.common.videoQualityIcon
 import com.hady.robustexoplayer.data.model.SettingsFeature
+import com.hady.robustexoplayer.data.model.VideoQualityOptions
 import com.hady.robustexoplayer.data.model.settingFeatures
+import com.hady.robustexoplayer.domain.player.PlayerEvent
+import com.hady.robustexoplayer.presentation.component.speed.PlaybackSpeedComponent
 import com.hady.robustexoplayer.presentation.component.video_quality.AvailableVideoQualityComponent
+import com.hady.robustexoplayer.presentation.component.video_quality.QualityFeaturesComponent
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
 import java.util.Locale
 
@@ -47,6 +53,13 @@ fun SettingsBottomSheet(
 ) {
     val selectedFeature by playerViewModel.selectedSettingMenu.collectAsStateWithLifecycle()
     val selectedSpeed = playerViewModel.selectedPlaybackSpeed.collectAsStateWithLifecycle()
+
+    val currentPlayingResolution by playerViewModel.currentPlayingResolution.collectAsStateWithLifecycle()
+    val currentTrackIndex by playerViewModel.currentPlayingTrackIndex.collectAsStateWithLifecycle()
+
+    val listOfVideoQualityFeature by playerViewModel.videoQualityFeatureList.collectAsStateWithLifecycle()
+    val availableVideoResolution by playerViewModel.availableVideoResolutions.collectAsStateWithLifecycle()
+    val availableVideoTracks by playerViewModel.availableVideoTracks.collectAsStateWithLifecycle()
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -81,23 +94,52 @@ fun SettingsBottomSheet(
                 SettingsFeature.LockScreen -> {}
 
                 SettingsFeature.PlaybackSpeed -> {
-                    SettingsDetailsScreen(
-                        feature = selectedFeature!!,
-                        playerViewModel = playerViewModel,
-                        selectedSpeed = selectedSpeed.value
+                    PlaybackSpeedComponent(
+                        selectedSpeed = selectedSpeed.value,
+                        onSpeedChange = { updatedSpeed ->
+                            playerViewModel.updatePlaybackSpeed(updatedSpeed)
+                        }
                     )
                 }
 
                 SettingsFeature.VideoQualityFeatures.Main -> {
-                    SettingsDetailsScreen(
-                        feature = selectedFeature!!,
-                        playerViewModel = playerViewModel,
-                        selectedSpeed = selectedSpeed.value
+                    QualityFeaturesComponent(
+                        videoQualityFeatures = listOfVideoQualityFeature,
+                        currentPlayingResolution = currentPlayingResolution,
+                        onFeatureQualitySelected = { feat ->
+                            playerViewModel.onPlayerEvent(event = PlayerEvent.PlaybackQuality(quality = feat))
+                            when (feat) {
+                                VideoQualityOptions.Advanced -> {
+                                    playerViewModel.settingsMenuSelection(SettingsFeature.VideoQualityFeatures.AvailableQuality)
+                                }
+
+                                else -> {
+                                    //playerViewModel.onPlayerEvent(event = PlayerEvent.PlaybackQuality(quality = feat))
+                                }
+                            }
+                        }
                     )
                 }
                 is SettingsFeature.VideoQualityFeatures.AvailableQuality -> {
-                    AvailableVideoQualityComponent()
+                    if (playerViewModel.willHaveContent()) {
+                        Log.d("QUALITY_LIST", "SettingsBottomSheet: ${availableVideoResolution.size}")
+                        AvailableVideoQualityComponent(
+                            availableVideoTracks = availableVideoTracks,
+                            currentPlayingTrackIndex = currentTrackIndex,
+                            onQualitySelected = { trackIndex ->
+                                playerViewModel.updateVideoQuality(trackIndex) // ✅ Apply user selection
+                            }
+                        )
+                    } else {
+                        Text(
+                            text = "No quality options available",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
                 }
+
 
                 SettingsFeature.SleepTimer -> {}
                 null -> {
@@ -113,7 +155,7 @@ fun SettingsBottomSheet(
                                 )  // Force US locale for decimal formatting
                             }
                         } else if (feature == SettingsFeature.VideoQualityFeatures.Main) {
-                            "360p"
+                            currentPlayingResolution
                         } else {
                             "Off"
                         }

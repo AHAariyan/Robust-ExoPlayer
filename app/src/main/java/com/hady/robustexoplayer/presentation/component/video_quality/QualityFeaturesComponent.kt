@@ -29,7 +29,8 @@ import com.hady.robustexoplayer.ui.theme.RobustExoPlayerTheme
 @Composable
 internal fun QualityFeaturesComponent(
     videoQualityFeatures: List<Pair<VideoQualityOptions, Boolean>>,
-    onFeatureQualitySelected: (VideoQualityOptions) -> Unit
+    onFeatureQualitySelected: (VideoQualityOptions) -> Unit,
+    currentPlayingResolution: String?
 ) {
     Column(
         modifier = Modifier
@@ -56,12 +57,14 @@ internal fun QualityFeaturesComponent(
             )
 
 
-            Text(
-                text = "360p",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = Color.Black
-            )
+            currentPlayingResolution?.let {
+                Text(
+                    text = it,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.Black
+                )
+            }
         }
 
         Spacer(modifier = Modifier.padding(top = 16.dp))
@@ -138,7 +141,11 @@ internal fun PreviewQualityFeatureComponent() {
                 .padding(16.dp)
                 .fillMaxWidth()
         ) {
-            QualityFeaturesComponent(videoQualityFeatures = list, onFeatureQualitySelected = {})
+            QualityFeaturesComponent(
+                videoQualityFeatures = list,
+                onFeatureQualitySelected = {},
+                currentPlayingResolution = ""
+            )
         }
     }
 }
