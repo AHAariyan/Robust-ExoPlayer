@@ -233,7 +233,6 @@ internal fun PlayerScreen(
                         }
                     }
                 },
-            contentAlignment = Alignment.TopCenter
         ) {
             /** Video Player **/
             PlayerViewWrapper(
@@ -257,7 +256,7 @@ internal fun PlayerScreen(
                     zoomedScale = zoomedScale,
                     seekOverlayDirection = seekOverlayDirection,
                     onTap = {
-                        playerViewModel.onPlayerTapped()
+                       // playerViewModel.onPlayerTapped()
                     }
                 )
             }
@@ -265,31 +264,40 @@ internal fun PlayerScreen(
             /**
              * Show some views over the controller
              */
+            /** ✅ Show Seek Overlay when Double Tap happens **/
+
+
             if (isSeekingTemporaryFastForward) {
-                Row(
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .background(
-                            color = Color.Black.copy(alpha = 0.5f), RoundedCornerShape(25.dp)
-                        )
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                Box (
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        modifier = Modifier,
-                        text = "2x", color = Color.White
-                    )
-                    repeat(2) {
-                        AnimatedArrow(direction = SeekOverlay.FORWARD.name)
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .background(
+                                color = Color.Black.copy(alpha = 0.5f), RoundedCornerShape(25.dp)
+                            )
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            modifier = Modifier,
+                            text = "2x", color = Color.White
+                        )
+                        repeat(2) {
+                            AnimatedArrow(direction = SeekOverlay.FORWARD.name)
+                        }
                     }
                 }
             }
 
-            /** ✅ Show Seek Overlay when Double Tap happens **/
             if (seekOverlayDirection.value != SeekOverlay.IDLE) {
                 SeekOverlayEffect(seekOverlayDirection.value)
             }
+
+
         }
 
         /** ✅ Video Info **/

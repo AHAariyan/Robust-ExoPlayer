@@ -86,9 +86,9 @@ fun ControllerScreen(
                             SeekOverlay.FORWARD
                         }
                     },
-                    onTap = {
-                        onTap()
-                    }
+//                    onTap = {
+//                        onTap()
+//                    }
                 )
             }
     ) {

@@ -149,6 +149,8 @@ fun AnimatedArrow(direction: String) {
 @Preview
 internal fun PreviewAnimateArrow(){
     RobustExoPlayerTheme {
-        AnimatedArrow(direction = SeekOverlay.FORWARD.name)
+        Column (modifier = Modifier.fillMaxSize()) {
+            SeekOverlayEffect(direction = SeekOverlay.FORWARD)
+        }
     }
 }
