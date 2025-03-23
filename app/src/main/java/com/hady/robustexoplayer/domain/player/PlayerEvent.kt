@@ -15,7 +15,7 @@ sealed class PlayerEvent {
     data class Play(val url: String) : PlayerEvent()
     data object Pause : PlayerEvent()
     data class SeekTo(val positionMs: Long) : PlayerEvent()
-    data class PlaybackSpeed(val speed: Float) : PlayerEvent()
+    data class PlaybackSpeed(val speed: Float, val isTemporarySpeed: Boolean = false) : PlayerEvent()
     data class PlaybackQuality(val quality: VideoQualityOptions) : PlayerEvent()
     data object Next : PlayerEvent()
     data object Previous : PlayerEvent()

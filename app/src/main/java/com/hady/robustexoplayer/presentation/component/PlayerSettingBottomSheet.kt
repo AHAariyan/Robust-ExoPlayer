@@ -97,7 +97,8 @@ fun SettingsBottomSheet(
                     PlaybackSpeedComponent(
                         selectedSpeed = selectedSpeed.value,
                         onSpeedChange = { updatedSpeed ->
-                            playerViewModel.updatePlaybackSpeed(updatedSpeed)
+                            //playerViewModel.updatePlaybackSpeed(updatedSpeed)
+                            playerViewModel.onPlayerEvent(event = PlayerEvent.PlaybackSpeed(speed = updatedSpeed, isTemporarySpeed = false))
                         }
                     )
                 }

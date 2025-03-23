@@ -22,6 +22,7 @@ import com.hady.robustexoplayer.data.model.VideoQualityOptions
 import com.hady.robustexoplayer.di.ExoPlayerManager
 import com.hady.robustexoplayer.domain.player.PlayerEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,7 +63,8 @@ class PlayerViewModel
     val availableTracks: StateFlow<Map<Int, List<Tracks.Group>>> = _availableTracks.asStateFlow()
 
     private val _trackSelectionParameters = MutableStateFlow(player.trackSelectionParameters)
-    private val trackSelectionParameters: StateFlow<TrackSelectionParameters> = _trackSelectionParameters.asStateFlow()
+    private val trackSelectionParameters: StateFlow<TrackSelectionParameters> =
+        _trackSelectionParameters.asStateFlow()
 
     // Track Disabled State & Overrides
     private val _disabledTrackTypes = MutableStateFlow(mutableSetOf<Int>())
@@ -81,15 +83,19 @@ class PlayerViewModel
     val selectedSettingMenu: StateFlow<SettingsFeature?> = _selectedSettingsMenu.asStateFlow()
 
     // Solely for video selection as it has sub category
-    private val _selectedQualityOption = MutableStateFlow<VideoQualityOptions>(VideoQualityOptions.Auto)
+    private val _selectedQualityOption =
+        MutableStateFlow<VideoQualityOptions>(VideoQualityOptions.Auto)
     val selectedQualityOption: StateFlow<VideoQualityOptions> = _selectedQualityOption.asStateFlow()
 
     // Holds manually selectable video resolutions
-    private val _availableVideoResolutions = MutableStateFlow<List<Pair<String, TrackSelectionOverride>>>(emptyList())
-    val availableVideoResolutions: StateFlow<List<Pair<String, TrackSelectionOverride>>> = _availableVideoResolutions.asStateFlow()
+    private val _availableVideoResolutions =
+        MutableStateFlow<List<Pair<String, TrackSelectionOverride>>>(emptyList())
+    val availableVideoResolutions: StateFlow<List<Pair<String, TrackSelectionOverride>>> =
+        _availableVideoResolutions.asStateFlow()
 
     private val _availableVideoTracks = MutableStateFlow<List<Pair<Int, String>>>(emptyList())
-    val availableVideoTracks: StateFlow<List<Pair<Int, String>>> = _availableVideoTracks.asStateFlow()
+    val availableVideoTracks: StateFlow<List<Pair<Int, String>>> =
+        _availableVideoTracks.asStateFlow()
 
 
     // Running video resolution
@@ -101,18 +107,28 @@ class PlayerViewModel
     val currentPlayingTrackIndex: StateFlow<Int?> = _currentPlayingTrackIndex.asStateFlow()
 
     // Total menus available for video quality selection
-    private val _videoQualityFeatureList = MutableStateFlow<List<Pair<VideoQualityOptions, Boolean>>>(emptyList())
-    val videoQualityFeatureList: StateFlow<List<Pair<VideoQualityOptions, Boolean>>> = _videoQualityFeatureList.asStateFlow()
+    private val _videoQualityFeatureList =
+        MutableStateFlow<List<Pair<VideoQualityOptions, Boolean>>>(emptyList())
+    val videoQualityFeatureList: StateFlow<List<Pair<VideoQualityOptions, Boolean>>> =
+        _videoQualityFeatureList.asStateFlow()
 
     // Track which feature is selected
-    private val _selectedVideoQualityFeatures = MutableStateFlow<VideoQualityOptions>(VideoQualityOptions.Auto)
-    val selectedVideoQualityFeatures: StateFlow<VideoQualityOptions> = _selectedVideoQualityFeatures.asStateFlow()
+    private val _selectedVideoQualityFeatures =
+        MutableStateFlow<VideoQualityOptions>(VideoQualityOptions.Auto)
+    val selectedVideoQualityFeatures: StateFlow<VideoQualityOptions> =
+        _selectedVideoQualityFeatures.asStateFlow()
 
     // Track override by user selection
     private val overrides: StateFlow<Map<TrackGroup, TrackSelectionOverride>> =
         trackSelectionParameters.map { it.overrides }
             .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
 
+
+
+    private val _controlsVisible = MutableStateFlow(false)
+    val controlsVisible: StateFlow<Boolean> = _controlsVisible.asStateFlow()
+
+    private var hideControlsJob: Job? = null
 
     /** One-Time UI Events (e.g., Open Settings, Open Comments, etc.) **/
     private val _uiEvent = MutableSharedFlow<PlayerEvent>()
@@ -135,7 +151,7 @@ class PlayerViewModel
             is PlayerEvent.Play -> playVideo(url = event.url)
             is PlayerEvent.Pause -> togglePlayPause()
             is PlayerEvent.SeekTo -> seekTo(event.positionMs)
-            is PlayerEvent.PlaybackSpeed -> updatePlaybackSpeed(event.speed)
+            is PlayerEvent.PlaybackSpeed -> updatePlaybackSpeed(speed = event.speed, isTemporarySpeed = event.isTemporarySpeed)
             is PlayerEvent.FastForward -> seekForward()
             is PlayerEvent.Rewind -> seekBackward()
             is PlayerEvent.Next -> playNext()
@@ -169,9 +185,14 @@ class PlayerViewModel
      * ////////////////////////////////////////////////////////// AUDIO PART /////////////////////////////////////////////////////////////////
      */
     //Update Playback Speed (0.25x, 0.5x, 1x, 1.5x, 2x)
-    fun updatePlaybackSpeed(speed: Float) {
-        _selectedPlaybackSpeed.value = speed // store user preferences
-        player.playbackParameters = PlaybackParameters(_selectedPlaybackSpeed.value)
+    private fun updatePlaybackSpeed(speed: Float, isTemporarySpeed: Boolean) {
+        if (!isTemporarySpeed) {
+            _selectedPlaybackSpeed.value = speed // store user preferences
+            player.playbackParameters = PlaybackParameters(_selectedPlaybackSpeed.value)
+        } else {
+            player.playbackParameters = PlaybackParameters(speed)
+        }
+
     }
 
     /**
@@ -235,7 +256,8 @@ class PlayerViewModel
         }
 
         _availableTracks.value = extractedTracks
-        _availableVideoTracks.value = resolutionList.distinctBy { it.second } // ✅ Remove duplicate resolutions
+        _availableVideoTracks.value =
+            resolutionList.distinctBy { it.second } // ✅ Remove duplicate resolutions
     }
 
     // When use change the quality - Entry point of interacting with the quality selection
@@ -443,6 +465,33 @@ class PlayerViewModel
     /**
      * ////////////////////////////////////////////////////////// [START] UTILITY /////////////////////////////////////////////////////////////////
      */
+
+    /** ✅ Toggle Visibility & Start/Cancel Auto-Hide */
+    fun onPlayerTapped() {
+        Log.d("PlayerDebug", "User Clicked")
+        if (_controlsVisible.value) {
+            Log.d("PlayerDebug", "🎬 Controls are visible → Hiding Now!")
+            _controlsVisible.value = false
+            hideControlsJob?.cancel()
+        } else {
+            Log.d("PlayerDebug", "🎬 Controls are hidden → Showing Now & Starting Auto-Hide!")
+            _controlsVisible.value = true
+            startAutoHideControls()
+        }
+    }
+
+    /** ✅ Auto-Hide Controls After 3s */
+    private fun startAutoHideControls() {
+        hideControlsJob?.cancel() // Cancel any existing countdown
+
+        hideControlsJob = viewModelScope.launch {
+            Log.d("PlayerDebug", "⏳ Auto-hide started → Controls will hide in 3 seconds!")
+            delay(3000) // Hide after 3 seconds
+            _controlsVisible.value = false
+            Log.d("PlayerDebug", "🛑 3 Seconds Passed → Hiding Controls Now!")
+        }
+    }
+
     // Format Time
     private fun formatTime(ms: Long): String {
         val totalSeconds = ms / 1000
@@ -566,7 +615,10 @@ class PlayerViewModel
         }
 
         // ✅ Debugging logs
-        Log.d("TrackDebug", "🧐 Available Resolutions -> Track: $trackResolution, Rendered: $renderedResolution, Decoder: $decoderResolution")
+        Log.d(
+            "TrackDebug",
+            "🧐 Available Resolutions -> Track: $trackResolution, Rendered: $renderedResolution, Decoder: $decoderResolution"
+        )
     }
 
 
@@ -578,6 +630,7 @@ class PlayerViewModel
 
         return if (width > 0 && height > 0) Pair(width, height) else null
     }
+
     private fun handlePlaybackStateChanged(player: Player) {
         val playbackState = player.playbackState
         val playbackStateMessage = when (playbackState) {
@@ -797,8 +850,6 @@ class PlayerViewModel
         _videoQualityFeatureList.value =
             VideoQualityOptions.entries.map { it to (it == selectedVideoQualityFeature) }
     }
-
-
 
 
 }

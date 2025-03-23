@@ -64,7 +64,8 @@ fun ControllerScreen(
     playerUiState: PlayerUiState,
     isFullscreen: Boolean,
     zoomedScale: Float,
-    seekOverlayDirection: MutableState<SeekOverlay>
+    seekOverlayDirection: MutableState<SeekOverlay>,
+    onTap: () -> Unit
 ) {
 
     val playPauseIcon = if (playerUiState.isPlaying) painterResource(pauseIcon) else painterResource(playIcon)
@@ -84,6 +85,9 @@ fun ControllerScreen(
                             playerViewModel.onPlayerEvent(event = PlayerEvent.FastForward(10))
                             SeekOverlay.FORWARD
                         }
+                    },
+                    onTap = {
+                        onTap()
                     }
                 )
             }

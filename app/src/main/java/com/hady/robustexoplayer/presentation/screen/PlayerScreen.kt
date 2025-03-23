@@ -17,8 +17,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -57,12 +61,15 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.hady.robustexoplayer.common.SeekOverlay
 import com.hady.robustexoplayer.domain.player.PlayerEvent
+import com.hady.robustexoplayer.presentation.component.AnimatedArrow
 import com.hady.robustexoplayer.presentation.component.SeekOverlayEffect
 import com.hady.robustexoplayer.presentation.component.SettingsBottomSheet
 import com.hady.robustexoplayer.presentation.view_model.PlayerUiState
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -121,13 +128,19 @@ internal fun PlayerScreen(
 
     val context = LocalContext.current
 
-    var controlsVisible by remember { mutableStateOf(true) }
+    val controlsVisible by playerViewModel.controlsVisible.collectAsStateWithLifecycle()
+
+
     val isFullscreen by playerViewModel.isFullscreen.collectAsStateWithLifecycle()
     val zoomedScale by playerViewModel.zoomScale.collectAsStateWithLifecycle()
+
+    val selectedSpeed = playerViewModel.selectedPlaybackSpeed.collectAsStateWithLifecycle()
+    var isSeekingTemporaryFastForward by remember { mutableStateOf(false) }
 
     val isSettingsVisible by playerViewModel.isSettingVisible.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState()
 
+    // FastForward and Rewind
     val seekOverlayDirection = remember { mutableStateOf<SeekOverlay>(SeekOverlay.IDLE) }
     val currentOverlayState by rememberUpdatedState(seekOverlayDirection.value)
 
@@ -149,19 +162,17 @@ internal fun PlayerScreen(
             SettingsBottomSheet(
                 playerViewModel = playerViewModel,
                 sheetState = sheetState,
-                onDismiss = { playerViewModel.onPlayerEvent(event = PlayerEvent.ToggleSettings(shouldOpen = false)) }
+                onDismiss = {
+                    playerViewModel.onPlayerEvent(
+                        event = PlayerEvent.ToggleSettings(
+                            shouldOpen = false
+                        )
+                    )
+                }
             )
         }
     }
 
-
-    /** ✅ Auto-hide controls after inactivity **/
-    LaunchedEffect(controlsVisible) {
-        if (controlsVisible) {
-            delay(3000) // Hide after 3s
-            controlsVisible = false
-        }
-    }
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -174,7 +185,9 @@ internal fun PlayerScreen(
                 .then(if (isFullscreen) Modifier.fillMaxSize() else Modifier.aspectRatio(16f / 9f))
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onTap = { controlsVisible = !controlsVisible },
+                        onTap = {
+                            playerViewModel.onPlayerTapped()
+                        },
                         onDoubleTap = { offset ->
                             val screenWidth = size.width
 
@@ -187,15 +200,48 @@ internal fun PlayerScreen(
                             }
                         },
                         onLongPress = {
-
+                            println("Long press started")
+                            playerViewModel.onPlayerEvent(
+                                event = PlayerEvent.PlaybackSpeed(
+                                    speed = 2.0f,
+                                    isTemporarySpeed = true
+                                )
+                            )
+                            isSeekingTemporaryFastForward = true
                         }
                     )
                 }
+                .pointerInput(isSeekingTemporaryFastForward) {
+                    if (isSeekingTemporaryFastForward) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Main)
+                                val isUp = event.changes.all { it.pressed.not() }
+
+                                if (isUp) {
+                                    println("Long press ended")
+                                    isSeekingTemporaryFastForward = false
+                                    playerViewModel.onPlayerEvent(
+                                        event = PlayerEvent.PlaybackSpeed(
+                                            speed = selectedSpeed.value,
+                                            isTemporarySpeed = false
+                                        )
+                                    )
+                                    break // Exit the loop when the finger is lifted
+                                }
+                            }
+                        }
+                    }
+                },
+            contentAlignment = Alignment.TopCenter
         ) {
-            /** ✅ Video Player **/
-            PlayerViewWrapper(player = player, isFullscreen = isFullscreen, zoomedScale = zoomedScale, playerViewModel = playerViewModel)
-
-
+            /** Video Player **/
+            PlayerViewWrapper(
+                player = player,
+                isFullscreen = isFullscreen,
+                zoomedScale = zoomedScale,
+                playerViewModel = playerViewModel
+            )
 
 
             /** ✅ Animated Visibility of Controls **/
@@ -209,8 +255,35 @@ internal fun PlayerScreen(
                     playerUiState = playerUiState,
                     isFullscreen = isFullscreen,
                     zoomedScale = zoomedScale,
-                    seekOverlayDirection = seekOverlayDirection
+                    seekOverlayDirection = seekOverlayDirection,
+                    onTap = {
+                        playerViewModel.onPlayerTapped()
+                    }
                 )
+            }
+
+            /**
+             * Show some views over the controller
+             */
+            if (isSeekingTemporaryFastForward) {
+                Row(
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .background(
+                            color = Color.Black.copy(alpha = 0.5f), RoundedCornerShape(25.dp)
+                        )
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        modifier = Modifier,
+                        text = "2x", color = Color.White
+                    )
+                    repeat(2) {
+                        AnimatedArrow(direction = SeekOverlay.FORWARD.name)
+                    }
+                }
             }
 
             /** ✅ Show Seek Overlay when Double Tap happens **/
