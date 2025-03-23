@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
+import com.hady.robustexoplayer.common.SeekOverlay
 import com.hady.robustexoplayer.common.commentsIcon
 import com.hady.robustexoplayer.common.fullScreenIcon
 import com.hady.robustexoplayer.common.pauseIcon
@@ -61,7 +63,8 @@ fun ControllerScreen(
     playerViewModel: PlayerViewModel,
     playerUiState: PlayerUiState,
     isFullscreen: Boolean,
-    zoomedScale: Float
+    zoomedScale: Float,
+    seekOverlayDirection: MutableState<SeekOverlay>
 ) {
 
     val playPauseIcon = if (playerUiState.isPlaying) painterResource(pauseIcon) else painterResource(playIcon)
@@ -69,13 +72,22 @@ fun ControllerScreen(
         modifier = Modifier
             .background(Color.Black.copy(alpha = 0.7f))
             .fillMaxSize()
-    ) {
+            .pointerInput(Unit) {
+                detectTapGestures (
+                    onDoubleTap = { offset ->
+                        val screenWidth = size.width
 
-        /** ✅ Double-Tap Gesture for Seek (Like YouTube) **/
-        DoubleTapSeekGesture(
-            onDoubleTapLeft = { playerViewModel.onPlayerEvent(PlayerEvent.Rewind(10)) },
-            onDoubleTapRight = { playerViewModel.onPlayerEvent(PlayerEvent.FastForward(10)) }
-        )
+                        seekOverlayDirection.value = if (offset.x < screenWidth / 2) {
+                            playerViewModel.onPlayerEvent(event = PlayerEvent.Rewind(10))
+                            SeekOverlay.BACKWARD
+                        } else {
+                            playerViewModel.onPlayerEvent(event = PlayerEvent.FastForward(10))
+                            SeekOverlay.FORWARD
+                        }
+                    }
+                )
+            }
+    ) {
 
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -213,106 +225,6 @@ fun ControllerScreen(
         }
     }
 }
-
-/** ✅ Double-Tap Gesture (YouTube-Style Seek Forward & Rewind) **/
-@Composable
-fun DoubleTapSeekGesture(
-    onDoubleTapLeft: () -> Unit,
-    onDoubleTapRight: () -> Unit
-) {
-    val isVisibleLeft = remember { mutableStateOf(false) }
-    val isVisibleRight = remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Left Side (Rewind)
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .weight(1f)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            isVisibleLeft.value = true
-                            scope.launch {
-                                delay(500) // Delay before fading out
-                                isVisibleLeft.value = false
-                            }
-                            onDoubleTapLeft()
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.animation.AnimatedVisibility (
-                visible = isVisibleLeft.value,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Rewind 10s",
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
-            }
-        }
-
-        // Right Side (Fast Forward)
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .weight(1f)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            isVisibleRight.value = true
-                            scope.launch {
-                                delay(500) // Delay before fading out
-                                isVisibleRight.value = false
-                            }
-                            onDoubleTapRight()
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.animation.AnimatedVisibility (
-                visible = isVisibleRight.value,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Fast Forward 10s",
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-
 //@Composable
 //@Preview(showBackground = true, name = "Player Controller Preview")
 //internal fun PreviewPlayerController() {

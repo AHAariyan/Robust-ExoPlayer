@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.util.Log
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.core.LinearEasing
@@ -33,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,7 +55,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.hady.robustexoplayer.common.SeekOverlay
 import com.hady.robustexoplayer.domain.player.PlayerEvent
+import com.hady.robustexoplayer.presentation.component.SeekOverlayEffect
 import com.hady.robustexoplayer.presentation.component.SettingsBottomSheet
 import com.hady.robustexoplayer.presentation.view_model.PlayerUiState
 import com.hady.robustexoplayer.presentation.view_model.PlayerViewModel
@@ -114,6 +118,9 @@ internal fun PlayerScreen(
     playerViewModel: PlayerViewModel,
     modifier: Modifier = Modifier
 ) {
+
+    val context = LocalContext.current
+
     var controlsVisible by remember { mutableStateOf(true) }
     val isFullscreen by playerViewModel.isFullscreen.collectAsStateWithLifecycle()
     val zoomedScale by playerViewModel.zoomScale.collectAsStateWithLifecycle()
@@ -121,10 +128,21 @@ internal fun PlayerScreen(
     val isSettingsVisible by playerViewModel.isSettingVisible.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState()
 
+    val seekOverlayDirection = remember { mutableStateOf<SeekOverlay>(SeekOverlay.IDLE) }
+    val currentOverlayState by rememberUpdatedState(seekOverlayDirection.value)
+
     val ambientBackgroundAlpha by animateFloatAsState(
         targetValue = if (controlsVisible) 0.6f else 1f, // ✅ Dim background when controls are hidden
         animationSpec = tween(durationMillis = 500, easing = LinearEasing)
     )
+
+    // Auto-hide seek overlay using LaunchedEffect
+    LaunchedEffect(currentOverlayState) {
+        if (currentOverlayState != SeekOverlay.IDLE) {
+            delay(600) // Show overlay for 600ms before hiding
+            seekOverlayDirection.value = SeekOverlay.IDLE
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (isSettingsVisible) {
@@ -155,11 +173,30 @@ internal fun PlayerScreen(
                 .fillMaxWidth()
                 .then(if (isFullscreen) Modifier.fillMaxSize() else Modifier.aspectRatio(16f / 9f))
                 .pointerInput(Unit) {
-                    detectTapGestures(onTap = { controlsVisible = !controlsVisible })
+                    detectTapGestures(
+                        onTap = { controlsVisible = !controlsVisible },
+                        onDoubleTap = { offset ->
+                            val screenWidth = size.width
+
+                            seekOverlayDirection.value = if (offset.x < screenWidth / 2) {
+                                playerViewModel.onPlayerEvent(event = PlayerEvent.Rewind(10))
+                                SeekOverlay.BACKWARD
+                            } else {
+                                playerViewModel.onPlayerEvent(event = PlayerEvent.FastForward(10))
+                                SeekOverlay.FORWARD
+                            }
+                        },
+                        onLongPress = {
+
+                        }
+                    )
                 }
         ) {
             /** ✅ Video Player **/
             PlayerViewWrapper(player = player, isFullscreen = isFullscreen, zoomedScale = zoomedScale, playerViewModel = playerViewModel)
+
+
+
 
             /** ✅ Animated Visibility of Controls **/
             androidx.compose.animation.AnimatedVisibility(
@@ -171,8 +208,14 @@ internal fun PlayerScreen(
                     playerViewModel = playerViewModel,
                     playerUiState = playerUiState,
                     isFullscreen = isFullscreen,
-                    zoomedScale = zoomedScale
+                    zoomedScale = zoomedScale,
+                    seekOverlayDirection = seekOverlayDirection
                 )
+            }
+
+            /** ✅ Show Seek Overlay when Double Tap happens **/
+            if (seekOverlayDirection.value != SeekOverlay.IDLE) {
+                SeekOverlayEffect(seekOverlayDirection.value)
             }
         }
 
